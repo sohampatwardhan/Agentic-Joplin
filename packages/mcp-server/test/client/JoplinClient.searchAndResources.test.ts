@@ -68,6 +68,78 @@ describe('JoplinClient search and resources', () => {
     expect(JSON.parse(updateInit.body).body).toBe('Existing body\n\n[photo.jpg](:/res1)');
   });
 
+  it('attachResourceToNote appends an HTML anchor link for HTML notes', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'note1',
+            parent_id: 'nb1',
+            title: 'Note',
+            body: '<p>existing</p>',
+            markup_language: 2,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'note1',
+            parent_id: 'nb1',
+            title: 'Note',
+            body: '<p>existing</p>\n\n<a href=":/res1">photo.jpg</a>',
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new JoplinClient(config, fetchImpl);
+
+    const note = await client.attachResourceToNote('note1', 'res1', 'photo.jpg');
+
+    expect(note.body).toContain('<a href=":/res1">photo.jpg</a>');
+    expect(note.body).not.toMatch(/\[.*\]\(:\/res1\)/);
+    const [, updateInit] = fetchImpl.mock.calls[1];
+    expect(JSON.parse(updateInit.body).body).toBe('<p>existing</p>\n\n<a href=":/res1">photo.jpg</a>');
+  });
+
+  it('attachResourceToNote HTML-escapes the resource title for HTML notes', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'note1',
+            parent_id: 'nb1',
+            title: 'Note',
+            body: '<p>existing</p>',
+            markup_language: 2,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'note1',
+            parent_id: 'nb1',
+            title: 'Note',
+            body: '<p>existing</p>\n\n<a href=":/res1">&lt;a &amp; b&gt; &quot;c&quot;</a>',
+          }),
+          { status: 200 },
+        ),
+      );
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.attachResourceToNote('note1', 'res1', '<a & b> "c"');
+
+    const [, updateInit] = fetchImpl.mock.calls[1];
+    expect(JSON.parse(updateInit.body).body).toBe(
+      '<p>existing</p>\n\n<a href=":/res1">&lt;a &amp; b&gt; &quot;c&quot;</a>',
+    );
+  });
+
   it('getResourceFile returns the raw file bytes as a Buffer', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), { status: 200 }));
     const client = new JoplinClient(config, fetchImpl);

@@ -20,6 +20,10 @@ interface ListResponse<T> {
 
 type QueryParams = Record<string, string | number | undefined>;
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export class JoplinClient {
   constructor(
     private readonly config: JoplinConfig,
@@ -205,8 +209,10 @@ export class JoplinClient {
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
-    const link = `\n\n[${safeTitle}](:/${resourceId})`;
+    const link =
+      note.markup_language === 2
+        ? `\n\n<a href=":/${resourceId}">${escapeHtml(resourceTitle)}</a>`
+        : `\n\n[${resourceTitle.replace(/[[\]]/g, '\\$&')}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
