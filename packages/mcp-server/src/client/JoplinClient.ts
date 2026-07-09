@@ -113,6 +113,10 @@ export class JoplinClient {
     return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
   }
 
+  async getNotebook(id: string): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {}, { fields: 'id,parent_id,title' });
+  }
+
   async listNotebooks(): Promise<Notebook[]> {
     return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
   }
@@ -125,6 +129,22 @@ export class JoplinClient {
     });
   }
 
+  async updateNotebook(id: string, input: Partial<{ title: string; parent_id: string }>): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNotebook(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/folders/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async getTag(id: string): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {}, { fields: 'id,title' });
+  }
+
   async listTags(): Promise<Tag[]> {
     return this.listAll<Tag>('/tags', { fields: 'id,title' });
   }
@@ -135,6 +155,18 @@ export class JoplinClient {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     });
+  }
+
+  async updateTag(id: string, input: { title: string }): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteTag(id: string): Promise<void> {
+    await this.request<void>(`/tags/${id}`, { method: 'DELETE' });
   }
 
   async attachTag(noteId: string, tagId: string): Promise<void> {
