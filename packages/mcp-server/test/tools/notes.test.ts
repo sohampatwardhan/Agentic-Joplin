@@ -52,7 +52,7 @@ describe('registerNoteTools', () => {
     expect(result.content[0].text).toContain('n1');
   });
 
-  it('create_note sends body_html instead of body when format is html', async () => {
+  it('create_note stores raw HTML in body with markup_language 2 when format is html', async () => {
     const client = { createNote: vi.fn().mockResolvedValue({ id: 'n2', parent_id: 'nb1', title: 'Rich' }) };
     const server = createFakeServer();
     registerNoteTools(server as any, client as any);
@@ -64,10 +64,12 @@ describe('registerNoteTools', () => {
       notebook_id: 'nb1',
     });
 
+    // Faithful HTML storage requires raw HTML in `body` + markup_language:2, NOT body_html
+    // (body_html triggers Joplin's HTML->Markdown conversion — verified against a real instance).
     expect(client.createNote).toHaveBeenCalledWith({
       title: 'Rich',
       parent_id: 'nb1',
-      body_html: '<p>Hi</p>',
+      body: '<p>Hi</p>',
       markup_language: 2,
     });
   });
@@ -111,7 +113,7 @@ describe('registerNoteTools', () => {
     expect(payload.format).toBe('markdown');
   });
 
-  it('update_note sends body_html when format is html and body is set', async () => {
+  it('update_note stores raw HTML in body with markup_language 2 when format is html', async () => {
     const client = { updateNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi' }) };
     const server = createFakeServer();
     registerNoteTools(server as any, client as any);
@@ -121,7 +123,7 @@ describe('registerNoteTools', () => {
     expect(client.updateNote).toHaveBeenCalledWith('n1', {
       title: undefined,
       parent_id: undefined,
-      body_html: '<p>Updated</p>',
+      body: '<p>Updated</p>',
       markup_language: 2,
     });
   });

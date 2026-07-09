@@ -20,7 +20,7 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
       try {
         const note =
           format === 'html'
-            ? await client.createNote({ title, parent_id: notebook_id, body_html: body, markup_language: 2 })
+            ? await client.createNote({ title, parent_id: notebook_id, body, markup_language: 2 })
             : await client.createNote({ title, parent_id: notebook_id, body });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
@@ -69,7 +69,7 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
     async ({ note_id, title, body, format, notebook_id }) => {
       try {
         const bodyFields =
-          body === undefined ? {} : format === 'html' ? { body_html: body, markup_language: 2 } : { body };
+          body === undefined ? {} : format === 'html' ? { body, markup_language: 2 } : { body };
         const note = await client.updateNote(note_id, { title, parent_id: notebook_id, ...bodyFields });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
