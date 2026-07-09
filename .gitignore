@@ -26,3 +26,7 @@ Thumbs.db
 *.swp
 .vscode/*
 !.vscode/extensions.json
+
+# Local agent-tool integration (e.g. Antigravity's project-scoped skill discovery) —
+# symlinks here use absolute, machine-specific paths and aren't portable across clones.
+.agents/
