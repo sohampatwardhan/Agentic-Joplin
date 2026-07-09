@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/../mcp-server/dist/index.js"],
+      "env": {
+        "JOPLIN_TOKEN": "${user_config.joplin_token}",
+        "JOPLIN_HOST": "127.0.0.1",
+        "JOPLIN_PORT": "41184"
+      }
+    }
+  }
+}

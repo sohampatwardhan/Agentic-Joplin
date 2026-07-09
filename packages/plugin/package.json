@@ -1,0 +1,14 @@
+{
+  "name": "@agentic-joplin/plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic Joplin plugin for Claude Code and Codex — bundles the Joplin MCP server and agent skills.",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "gray-matter": "^4.0.3",
+    "vitest": "^4.1.0"
+  }
+}

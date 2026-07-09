@@ -1,0 +1,19 @@
+{
+  "name": "agentic-joplin",
+  "displayName": "Agentic Joplin",
+  "description": "Joplin notes for coding agents: MCP tools plus skills for capturing, searching, updating, and organizing notes.",
+  "author": { "name": "Soham Patwardhan" },
+  "homepage": "https://github.com/sohampatwardhan/Agentic-Joplin",
+  "repository": "https://github.com/sohampatwardhan/Agentic-Joplin",
+  "license": "MIT",
+  "keywords": ["joplin", "notes", "mcp", "productivity"],
+  "userConfig": {
+    "joplin_token": {
+      "type": "string",
+      "title": "Joplin API token",
+      "description": "API token from Joplin: Options > Web Clipper > Advanced options.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

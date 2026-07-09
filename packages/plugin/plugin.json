@@ -1,0 +1,28 @@
+{
+  "name": "agentic-joplin",
+  "version": "0.1.0",
+  "description": "Joplin notes for coding agents: MCP tools plus skills for capturing, searching, updating, and organizing notes.",
+  "author": { "name": "Soham Patwardhan", "url": "https://github.com/sohampatwardhan" },
+  "homepage": "https://github.com/sohampatwardhan/Agentic-Joplin",
+  "repository": "https://github.com/sohampatwardhan/Agentic-Joplin",
+  "license": "MIT",
+  "keywords": ["joplin", "notes", "mcp", "productivity"],
+  "skills": "./skills/",
+  "mcpServers": {
+    "joplin": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/../mcp-server/dist/index.js"],
+      "env": {
+        "JOPLIN_HOST": "127.0.0.1",
+        "JOPLIN_PORT": "41184"
+      },
+      "env_vars": ["JOPLIN_TOKEN"]
+    }
+  },
+  "interface": {
+    "displayName": "Agentic Joplin",
+    "shortDescription": "Capture, search, and organize Joplin notes.",
+    "category": "Productivity",
+    "capabilities": ["Write"]
+  }
+}
