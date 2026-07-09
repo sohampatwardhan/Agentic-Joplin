@@ -84,4 +84,60 @@ describe('registerResourceTools', () => {
 
     expect(payload.content_base64).toBe(Buffer.from('fake-bytes').toString('base64'));
   });
+
+  it('update_resource sends props-only update when no new file is given', async () => {
+    const client = { updateResource: vi.fn().mockResolvedValue({ id: 'res1', title: 'New title' }) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('update_resource')!.handler({ resource_id: 'res1', title: 'New title' });
+
+    expect(client.updateResource).toHaveBeenCalledWith('res1', {
+      title: 'New title',
+      data: undefined,
+      filename: undefined,
+      mime: undefined,
+    });
+  });
+
+  it('update_resource decodes base64 file content when replacing the file', async () => {
+    const client = { updateResource: vi.fn().mockResolvedValue({ id: 'res1', title: 'photo.jpg' }) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('update_resource')!.handler({
+      resource_id: 'res1',
+      filename: 'photo.jpg',
+      file_base64: Buffer.from('new-bytes').toString('base64'),
+      mime: 'image/jpeg',
+    });
+
+    expect(client.updateResource).toHaveBeenCalledWith('res1', {
+      title: undefined,
+      data: Buffer.from('new-bytes'),
+      filename: 'photo.jpg',
+      mime: 'image/jpeg',
+    });
+  });
+
+  it('delete_resource calls JoplinClient.deleteResource with the given id', async () => {
+    const client = { deleteResource: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('delete_resource')!.handler({ resource_id: 'res1' });
+
+    expect(client.deleteResource).toHaveBeenCalledWith('res1');
+  });
+
+  it('list_note_resources calls JoplinClient.listNoteResources with the given note id', async () => {
+    const client = { listNoteResources: vi.fn().mockResolvedValue([{ id: 'res1', title: 'photo.jpg' }]) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    const result = await server.tools.get('list_note_resources')!.handler({ note_id: 'note1' });
+
+    expect(client.listNoteResources).toHaveBeenCalledWith('note1');
+    expect(JSON.parse(result.content[0].text)).toEqual([{ id: 'res1', title: 'photo.jpg' }]);
+  });
 });

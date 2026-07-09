@@ -59,4 +59,63 @@ export function registerResourceTools(server: McpServer, client: JoplinClient): 
       }
     },
   );
+
+  server.registerTool(
+    'update_resource',
+    {
+      description: "Rename a resource and/or replace its file content.",
+      inputSchema: {
+        resource_id: z.string().describe('ID of the resource to update'),
+        title: z.string().optional().describe('New title'),
+        filename: z.string().optional().describe('New file name, if replacing content'),
+        file_base64: z.string().optional().describe('Base64-encoded new file content, if replacing content'),
+        mime: z.string().optional().describe('MIME type of the new file content'),
+      },
+    },
+    async ({ resource_id, title, filename, file_base64, mime }) => {
+      try {
+        const data = file_base64 !== undefined ? Buffer.from(file_base64, 'base64') : undefined;
+        const resource = await client.updateResource(resource_id, { title, data, filename, mime });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(resource) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_resource',
+    {
+      description: 'Delete a resource by ID.',
+      inputSchema: {
+        resource_id: z.string().describe('ID of the resource to delete'),
+      },
+    },
+    async ({ resource_id }) => {
+      try {
+        await client.deleteResource(resource_id);
+        return { content: [{ type: 'text' as const, text: `Deleted resource ${resource_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_note_resources',
+    {
+      description: 'List resources attached to a note.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+      },
+    },
+    async ({ note_id }) => {
+      try {
+        const resources = await client.listNoteResources(note_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(resources) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
 }
