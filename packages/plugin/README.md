@@ -6,22 +6,31 @@ and Codex.
 ## Prerequisites
 
 - Node.js ≥ 20, and this monorepo built: `npm install && npm run build --workspace @agentic-joplin/mcp-server`
-- Joplin desktop running with the Web Clipper service enabled (Options → Web Clipper), and an API token.
+- Joplin desktop running with the Web Clipper service enabled (Options → Web Clipper).
 
 The bundled `.mcp.json` / `plugin.json` launch the server from `../mcp-server/dist/index.js`
 relative to the plugin (`${CLAUDE_PLUGIN_ROOT}`), so build the server before use.
 
+### Getting a token without copy-pasting
+
+Run `npm run authorize --workspace @agentic-joplin/mcp-server` once. It requests access from
+Joplin; click **Accept** on the dialog that appears in the app, and the token is fetched and
+cached to `~/.agentic-joplin/token.json` — the server picks it up automatically, so you can skip
+entering a token below entirely. Otherwise, get one manually from Joplin's
+**Options → Web Clipper → Advanced options**.
+
 ## Claude Code
 
 Install the plugin directory (e.g. `claude plugin install ./packages/plugin` or via a
-marketplace entry). Claude Code will prompt for the **Joplin API token** (stored in your
-keychain via the plugin's `userConfig`). Non-default host/port: edit the `env` in
-`.mcp.json`.
+marketplace entry). Claude Code will prompt for the **Joplin API token** — leave it blank if
+you've already run `authorize` above, since the server falls back to the cached token. If
+provided, it's stored in your keychain via the plugin's `userConfig`. Non-default host/port: edit
+the `env` in `.mcp.json`.
 
 ## Codex
 
-Install the plugin directory as a Codex plugin. Export your token so the server picks it up
-(the plugin passes `JOPLIN_TOKEN` through via `env_vars`):
+Install the plugin directory as a Codex plugin. If you didn't use `authorize`, export your token
+so the server picks it up (the plugin passes `JOPLIN_TOKEN` through via `env_vars`):
 
 ```bash
 export JOPLIN_TOKEN="<your token>"

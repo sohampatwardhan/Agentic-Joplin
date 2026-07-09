@@ -4,13 +4,17 @@
   "private": true,
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "agentic-joplin-authorize": "dist/authorizeCli.js"
+  },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "authorize": "node dist/authorizeCli.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

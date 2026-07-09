@@ -12,6 +12,12 @@ All notable changes to this project are documented here. The format is based on
   MCP server with four agent skills: `using-joplin` (hub), `joplin-capturing-notes`,
   `joplin-searching-and-updating`, and `joplin-organizing`. Shared `SKILL.md` files and MCP
   config; per-platform manifests. Token via Claude Code `userConfig` or Codex `env_vars`.
+- **Token auto-discovery** — `npm run authorize --workspace @agentic-joplin/mcp-server` (and the
+  `agentic-joplin-authorize` bin) runs Joplin's clipper authorization handshake (`POST /auth` +
+  poll `GET /auth/check`, the same flow the Web Clipper browser extension uses) so a user can
+  grant access with one click in Joplin instead of copy-pasting a token, caching the result to
+  `~/.agentic-joplin/token.json`. `loadConfig` falls back to this cache when `JOPLIN_TOKEN` is
+  unset, and the plugin's Claude Code `userConfig` token field is now optional.
 
 ## [0.1.0] - 2026-07-09
 

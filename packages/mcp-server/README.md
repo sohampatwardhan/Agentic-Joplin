@@ -4,17 +4,20 @@ An MCP server that lets agents manage Joplin notes, notebooks, tags, search, and
 
 ## Setup
 
-1. In the Joplin desktop app, go to **Options > Web Clipper** and note the port (default `41184`), then generate an API token.
+1. In the Joplin desktop app, go to **Options > Web Clipper** and enable the service (default port `41184`).
 2. Install and build: `npm install && npm run build --workspace @agentic-joplin/mcp-server`
-3. Add it to your MCP client config (e.g. Claude Code), running `node packages/mcp-server/dist/index.js` with these environment variables:
+3. Get a token — two options:
+   - **Automatic (no copy-pasting):** run `npm run authorize --workspace @agentic-joplin/mcp-server`. It requests access from Joplin; click **Accept** on the dialog that appears in the app, and the token is fetched and cached to `~/.agentic-joplin/token.json` automatically.
+   - **Manual:** in Joplin, go to **Options > Web Clipper > Advanced options**, copy the token, and set it as `JOPLIN_TOKEN` below.
+4. Add it to your MCP client config (e.g. Claude Code), running `node packages/mcp-server/dist/index.js` with these environment variables:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `JOPLIN_TOKEN` | Yes | — | API token from Joplin's Web Clipper settings |
+| `JOPLIN_TOKEN` | No, if you used the automatic `authorize` option above | — | API token from Joplin's Web Clipper settings. Falls back to the cached token from `authorize` if unset. |
 | `JOPLIN_HOST` | No | `127.0.0.1` | Host where Joplin's Web Clipper service is listening |
 | `JOPLIN_PORT` | No | `41184` | Port where Joplin's Web Clipper service is listening |
 
-Joplin desktop must be running with the Web Clipper service enabled for any tool call to succeed.
+Joplin desktop must be running with the Web Clipper service enabled for any tool call — or the `authorize` command — to succeed.
 
 ## Tools
 
@@ -54,4 +57,5 @@ Full CRUD parity with Joplin's Data API for notes, notebooks, tags, and resource
 
 - `npm run test --workspace @agentic-joplin/mcp-server` — unit tests (mocked Data API, no Joplin instance required)
 - `npm run build --workspace @agentic-joplin/mcp-server` — type-check and compile
+- `npm run authorize --workspace @agentic-joplin/mcp-server` — run Joplin's clipper authorization handshake and cache the resulting token
 - See `SMOKE_TEST.md` for the manual release checklist against a real Joplin instance.
