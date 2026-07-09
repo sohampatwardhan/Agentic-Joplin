@@ -3,6 +3,7 @@ import type { JoplinConfig } from '../config.js';
 import type { Note } from '../schemas/note.js';
 import type { Notebook } from '../schemas/notebook.js';
 import type { Tag } from '../schemas/tag.js';
+import type { Resource } from '../schemas/resource.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -142,5 +143,53 @@ export class JoplinClient {
 
   async detachTag(noteId: string, tagId: string): Promise<void> {
     await this.request<void>(`/tags/${tagId}/notes/${noteId}`, { method: 'DELETE' });
+  }
+
+  async search(query: string, options: { type?: string; limit?: number } = {}): Promise<Note[]> {
+    return this.listAll<Note>(
+      '/search',
+      { query, type: options.type, fields: 'id,parent_id,title' },
+      options.limit,
+    );
+  }
+
+  async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
+    const form = new FormData();
+    form.set('props', JSON.stringify({ title: input.title }));
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    return this.request<Resource>('/resources', { method: 'POST', body: form });
+  }
+
+  async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
+    const note = await this.getNote(noteId);
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
+    return this.updateNote(noteId, { body: (note.body ?? '') + link });
+  }
+
+  async getResource(id: string): Promise<Resource> {
+    return this.request<Resource>(`/resources/${id}`, {}, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async getResourceFile(id: string): Promise<Buffer> {
+    const url = this.buildUrl(`/resources/${id}/file`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  async listNoteResources(noteId: string): Promise<Resource[]> {
+    return this.listAll<Resource>(`/notes/${noteId}/resources`, {
+      fields: 'id,title,mime,file_extension,size',
+    });
   }
 }
