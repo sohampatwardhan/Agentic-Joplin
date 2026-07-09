@@ -60,7 +60,7 @@ Three layers, chosen over a thin direct-mapping approach (tangles HTTP logic int
 
 Transport: stdio (standard for local MCP servers run by Claude Code/Desktop/other MCP clients) — no HTTP server of our own to manage.
 
-Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk`.
+Runtime: TypeScript / Node.js, using the current `@modelcontextprotocol/server` package (`McpServer`, `StdioServerTransport` from `@modelcontextprotocol/server/stdio`) — the split successor to the older monolithic `@modelcontextprotocol/sdk` package. Tool input schemas use `zod/v4` per current SDK examples.
 
 ## `JoplinClient` methods
 
