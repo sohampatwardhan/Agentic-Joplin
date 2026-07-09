@@ -65,6 +65,7 @@ Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk` (latest stable:
 ## `JoplinClient` methods
 
 - `getNote(id)`, `createNote(input)`, `updateNote(id, input)`, `deleteNote(id)`, `listNotes({ parentId?, limit? })`
+- Note format: Joplin notes are Markdown by default but may be HTML. `createNote`/`updateNote` accept either `body` (Markdown) or `body_html` (HTML), matching the Data API's own two input fields. `getNote` requests the note's `markup_language` field (1 = Markdown, 2 = HTML) and a `noteFormatFromMarkupLanguage` helper maps it to a friendly `'markdown' | 'html'` value for tool output.
 - `listNotebooks()` — returns flat items with `parent_id`; a helper assembles them into a nested tree, since notebooks can be nested like folders
 - `createNotebook(input)` — accepts optional `parent_id` for nesting
 - `listTags()`, `createTag(input)`, `attachTag(noteId, tagId)`, `detachTag(noteId, tagId)`
@@ -77,9 +78,9 @@ Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk` (latest stable:
 
 | Tool | Purpose |
 |---|---|
-| `create_note` | title, body, notebook_id, optional tags |
-| `get_note` | fetch by id, with a fields param to avoid over-fetching |
-| `update_note` | partial update by id |
+| `create_note` | title, body, notebook_id, optional `format` (`markdown` default, or `html`) |
+| `get_note` | fetch by id, with a fields param to avoid over-fetching; result includes a `format` field |
+| `update_note` | partial update by id; optional `format` controls how `body` is interpreted |
 | `delete_note` | delete by id |
 | `list_notes` | by notebook_id, or all, capped/paginated |
 | `list_notebooks` | flat list + nested tree view |

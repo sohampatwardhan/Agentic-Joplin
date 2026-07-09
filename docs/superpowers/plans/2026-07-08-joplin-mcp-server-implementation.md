@@ -287,7 +287,7 @@ git commit -m "feat: add JoplinConnectionError and JoplinApiError"
 
 ```typescript
 import { describe, expect, it } from 'vitest';
-import { NoteSchema } from '../src/schemas/note.js';
+import { NoteSchema, noteFormatFromMarkupLanguage } from '../src/schemas/note.js';
 import { NotebookSchema } from '../src/schemas/notebook.js';
 import { TagSchema } from '../src/schemas/tag.js';
 import { ResourceSchema } from '../src/schemas/resource.js';
@@ -299,6 +299,7 @@ describe('entity schemas', () => {
       parent_id: 'nb-1',
       title: 'Hello',
       body: 'World',
+      markup_language: 1,
       created_time: 1,
       updated_time: 2,
     });
@@ -330,6 +331,20 @@ describe('entity schemas', () => {
     expect(resource.mime).toBe('image/jpeg');
   });
 });
+
+describe('noteFormatFromMarkupLanguage', () => {
+  it('maps markup_language 2 to html', () => {
+    expect(noteFormatFromMarkupLanguage(2)).toBe('html');
+  });
+
+  it('maps markup_language 1 to markdown', () => {
+    expect(noteFormatFromMarkupLanguage(1)).toBe('markdown');
+  });
+
+  it('defaults to markdown when markup_language is undefined', () => {
+    expect(noteFormatFromMarkupLanguage(undefined)).toBe('markdown');
+  });
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -347,11 +362,19 @@ export const NoteSchema = z.object({
   parent_id: z.string(),
   title: z.string(),
   body: z.string().optional(),
+  markup_language: z.number().optional(),
   created_time: z.number().optional(),
   updated_time: z.number().optional(),
 });
 
 export type Note = z.infer<typeof NoteSchema>;
+
+export type NoteFormat = 'markdown' | 'html';
+
+/** Joplin stores markup_language as 1 (Markdown) or 2 (HTML); undefined/1 defaults to markdown. */
+export function noteFormatFromMarkupLanguage(markupLanguage: number | undefined): NoteFormat {
+  return markupLanguage === 2 ? 'html' : 'markdown';
+}
 ```
 
 - [ ] **Step 4: Write `packages/mcp-server/src/schemas/notebook.ts`**
@@ -400,7 +423,7 @@ export type Resource = z.infer<typeof ResourceSchema>;
 - [ ] **Step 7: Run the test to verify it passes**
 
 Run: `npm run test --workspace @agentic-joplin/mcp-server`
-Expected: PASS (5 tests)
+Expected: PASS (8 tests)
 
 - [ ] **Step 8: Commit**
 
@@ -528,6 +551,7 @@ describe('JoplinClient notes', () => {
     expect(calledUrl.pathname).toBe('/notes/n1');
     expect(calledUrl.searchParams.get('token')).toBe('test-token');
     expect(calledUrl.searchParams.get('fields')).toContain('title');
+    expect(calledUrl.searchParams.get('fields')).toContain('markup_language');
   });
 
   it('createNote posts the input as JSON', async () => {
@@ -542,6 +566,31 @@ describe('JoplinClient notes', () => {
     const [, init] = fetchImpl.mock.calls[0];
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body)).toEqual({ title: 'New', parent_id: 'nb1', body: 'Body' });
+  });
+
+  it('createNote sends body_html instead of body when creating an HTML note', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'n3', parent_id: 'nb1', title: 'Rich' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.createNote({ title: 'Rich', parent_id: 'nb1', body_html: '<p>Hi</p>' });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({ title: 'Rich', parent_id: 'nb1', body_html: '<p>Hi</p>' });
+  });
+
+  it('updateNote sends body_html when updating to HTML content', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'n1', parent_id: 'nb1', title: 'Hi' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.updateNote('n1', { body_html: '<p>Updated</p>' });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ body_html: '<p>Updated</p>' });
   });
 
   it('deleteNote sends a DELETE request and resolves with no value', async () => {
@@ -662,11 +711,11 @@ export class JoplinClient {
 
   async getNote(id: string): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {}, {
-      fields: 'id,parent_id,title,body,created_time,updated_time',
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -674,7 +723,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -700,7 +749,7 @@ export class JoplinClient {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test --workspace @agentic-joplin/mcp-server`
-Expected: PASS (6 tests). `listNotebooks` has no test yet — it is covered in Task 7.
+Expected: PASS (8 tests). `listNotebooks` has no test yet — it is covered in Task 7.
 
 - [ ] **Step 5: Commit**
 
@@ -922,11 +971,11 @@ export class JoplinClient {
 
   async getNote(id: string): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {}, {
-      fields: 'id,parent_id,title,body,created_time,updated_time',
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -934,7 +983,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1238,11 +1287,11 @@ export class JoplinClient {
 
   async getNote(id: string): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {}, {
-      fields: 'id,parent_id,title,body,created_time,updated_time',
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1250,7 +1299,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1468,7 +1517,7 @@ describe('registerNoteTools', () => {
     expect(result.success).toBe(false);
   });
 
-  it('create_note calls JoplinClient.createNote with mapped fields', async () => {
+  it('create_note calls JoplinClient.createNote with mapped fields, defaulting to markdown', async () => {
     const client = { createNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi' }) };
     const server = createFakeServer();
     registerNoteTools(server as any, client as any);
@@ -1484,6 +1533,21 @@ describe('registerNoteTools', () => {
     expect(result.content[0].text).toContain('n1');
   });
 
+  it('create_note sends body_html instead of body when format is html', async () => {
+    const client = { createNote: vi.fn().mockResolvedValue({ id: 'n2', parent_id: 'nb1', title: 'Rich' }) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('create_note')!.handler({
+      title: 'Rich',
+      body: '<p>Hi</p>',
+      format: 'html',
+      notebook_id: 'nb1',
+    });
+
+    expect(client.createNote).toHaveBeenCalledWith({ title: 'Rich', parent_id: 'nb1', body_html: '<p>Hi</p>' });
+  });
+
   it('get_note maps a JoplinApiError into an isError tool result', async () => {
     const { JoplinApiError } = await import('../../src/client/errors.js');
     const client = { getNote: vi.fn().mockRejectedValue(new JoplinApiError(404, 'Not Found')) };
@@ -1494,6 +1558,43 @@ describe('registerNoteTools', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toBe('Not Found');
+  });
+
+  it('get_note includes a friendly format field derived from markup_language', async () => {
+    const client = {
+      getNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi', markup_language: 2 }),
+    };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    const result = await server.tools.get('get_note')!.handler({ note_id: 'n1' });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.format).toBe('html');
+  });
+
+  it('update_note sends body_html when format is html and body is set', async () => {
+    const client = { updateNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi' }) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('update_note')!.handler({ note_id: 'n1', body: '<p>Updated</p>', format: 'html' });
+
+    expect(client.updateNote).toHaveBeenCalledWith('n1', {
+      title: undefined,
+      parent_id: undefined,
+      body_html: '<p>Updated</p>',
+    });
+  });
+
+  it('update_note omits body fields entirely when body is not provided', async () => {
+    const client = { updateNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'New title' }) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('update_note')!.handler({ note_id: 'n1', title: 'New title' });
+
+    expect(client.updateNote).toHaveBeenCalledWith('n1', { title: 'New title', parent_id: undefined });
   });
 
   it('list_notes passes notebook_id and limit through to JoplinClient.listNotes', async () => {
@@ -1519,22 +1620,27 @@ Expected: FAIL — `Cannot find module '../../src/tools/notes.js'`
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { JoplinClient } from '../client/JoplinClient.js';
+import { noteFormatFromMarkupLanguage } from '../schemas/note.js';
 import { toToolError } from './toolError.js';
 
 export function registerNoteTools(server: McpServer, client: JoplinClient): void {
   server.registerTool(
     'create_note',
     {
-      description: 'Create a new Joplin note in the given notebook.',
+      description: 'Create a new Joplin note in the given notebook, in Markdown or HTML format.',
       inputSchema: {
         title: z.string().describe('Note title'),
-        body: z.string().optional().describe('Note body in Markdown'),
+        body: z.string().optional().describe('Note body, in the format given by "format"'),
+        format: z.enum(['markdown', 'html']).default('markdown').describe('Format of the body content'),
         notebook_id: z.string().describe('ID of the notebook to create the note in'),
       },
     },
-    async ({ title, body, notebook_id }) => {
+    async ({ title, body, format, notebook_id }) => {
       try {
-        const note = await client.createNote({ title, body, parent_id: notebook_id });
+        const note =
+          format === 'html'
+            ? await client.createNote({ title, parent_id: notebook_id, body_html: body })
+            : await client.createNote({ title, parent_id: notebook_id, body });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
         return toToolError(error);
@@ -1545,7 +1651,7 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
   server.registerTool(
     'get_note',
     {
-      description: 'Fetch a Joplin note by ID.',
+      description: 'Fetch a Joplin note by ID. The result includes a "format" field (markdown or html).',
       inputSchema: {
         note_id: z.string().describe('ID of the note to fetch'),
       },
@@ -1553,7 +1659,8 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
     async ({ note_id }) => {
       try {
         const note = await client.getNote(note_id);
-        return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
+        const format = noteFormatFromMarkupLanguage(note.markup_language);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ ...note, format }) }] };
       } catch (error) {
         return toToolError(error);
       }
@@ -1563,17 +1670,19 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
   server.registerTool(
     'update_note',
     {
-      description: 'Partially update a Joplin note by ID.',
+      description: 'Partially update a Joplin note by ID. Set "format" to control how "body" is interpreted.',
       inputSchema: {
         note_id: z.string().describe('ID of the note to update'),
         title: z.string().optional().describe('New title'),
-        body: z.string().optional().describe('New body in Markdown'),
+        body: z.string().optional().describe('New body, in the format given by "format"'),
+        format: z.enum(['markdown', 'html']).optional().describe('Format of the body content, if body is set'),
         notebook_id: z.string().optional().describe('Move the note to this notebook ID'),
       },
     },
-    async ({ note_id, title, body, notebook_id }) => {
+    async ({ note_id, title, body, format, notebook_id }) => {
       try {
-        const note = await client.updateNote(note_id, { title, body, parent_id: notebook_id });
+        const bodyFields = body === undefined ? {} : format === 'html' ? { body_html: body } : { body };
+        const note = await client.updateNote(note_id, { title, parent_id: notebook_id, ...bodyFields });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
         return toToolError(error);
@@ -2286,6 +2395,7 @@ Build first: `npm run build --workspace @agentic-joplin/mcp-server`
 Then connect an MCP client (e.g. Claude Code) to `node packages/mcp-server/dist/index.js` with the env vars above, and run through:
 
 - [ ] `create_note` — create a note in an existing notebook; verify it appears in Joplin.
+- [ ] `create_note` with `format: "html"` — create a note with an HTML body; verify Joplin renders it as HTML (not literal Markdown-escaped tags), and that `get_note` reports `format: "html"` for it.
 - [ ] `list_notes` — list notes in that notebook; verify the new note is present.
 - [ ] `find_notes` — search for the note by a word from its title; verify it's found.
 - [ ] `create_notebook` with a `parent_id` — verify the new notebook appears nested under the parent in Joplin's sidebar.
@@ -2321,9 +2431,9 @@ Joplin desktop must be running with the Web Clipper service enabled for any tool
 
 | Tool | Purpose |
 |---|---|
-| `create_note` | Create a note in a notebook |
-| `get_note` | Fetch a note by ID |
-| `update_note` | Partially update a note |
+| `create_note` | Create a note in a notebook, in Markdown (default) or HTML via `format` |
+| `get_note` | Fetch a note by ID; result includes a `format` field |
+| `update_note` | Partially update a note; `format` controls how `body` is interpreted |
 | `delete_note` | Delete a note |
 | `list_notes` | List notes, optionally scoped to a notebook |
 | `list_notebooks` | List notebooks as a flat list and a nested tree |
