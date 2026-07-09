@@ -643,8 +643,14 @@ describe('JoplinClient notes', () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('Not Found', { status: 404 }));
     const client = new JoplinClient(config, fetchImpl);
 
-    await expect(client.getNote('missing')).rejects.toBeInstanceOf(JoplinApiError);
-    await expect(client.getNote('missing')).rejects.toMatchObject({ status: 404 });
+    // A single call is used here (not two separate `await expect(...)` calls) because the
+    // mocked Response's body can only be read once via `.text()` per the Fetch spec; reusing
+    // the same mock Response across two getNote calls throws "Body is unusable" on the second.
+    await expect(client.getNote('missing')).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(JoplinApiError);
+      expect(error).toMatchObject({ status: 404 });
+      return true;
+    });
   });
 });
 ```
