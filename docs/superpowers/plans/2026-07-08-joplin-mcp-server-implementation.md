@@ -4902,5 +4902,12 @@ tests are the source of truth where they differ from the inline full-file dumps:
   HTML `<a href=":/id">title</a>` (HTML-escaped title) for HTML notes (`markup_language === 2`)
   and the Markdown `[title](:/id)` link otherwise, so attachments render correctly in both
   note formats. Commit `a21bf59`.
+- **Post-review fix — HTML note storage (live-test finding):** live testing against a real Joplin
+  instance showed that `body_html` (even with `markup_language: 2`) makes Joplin convert the HTML
+  to Markdown before storing it. `create_note`/`update_note` were changed to send the raw HTML in
+  the `body` field with `markup_language: 2` instead, which stores HTML faithfully
+  (`<p>...<mark>...</mark>...</p>` round-trips intact). Also confirmed: Joplin's DELETE endpoints
+  return HTTP 200 with an empty body (not 204), so the empty-body handling in `request()` is
+  load-bearing, not defensive.
 
 Final state: 121 unit tests passing, `tsc` clean, 26 MCP tools across 7 groups over stdio.
