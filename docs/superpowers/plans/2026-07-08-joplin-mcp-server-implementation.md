@@ -3071,6 +3071,8 @@ export class JoplinClient {
     while (results.length < cap) {
       const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
       if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
         results.push(...response);
         break;
       }
@@ -3670,6 +3672,8 @@ export class JoplinClient {
     while (results.length < cap) {
       const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
       if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
         results.push(...response);
         break;
       }
