@@ -8,6 +8,8 @@ import { registerNotebookTools } from './tools/notebooks.js';
 import { registerTagTools } from './tools/tags.js';
 import { registerSearchTools } from './tools/search.js';
 import { registerResourceTools } from './tools/resources.js';
+import { registerRevisionTools } from './tools/revisions.js';
+import { registerSystemTools } from './tools/system.js';
 
 async function main() {
   const config = loadConfig(process.env);
@@ -20,6 +22,8 @@ async function main() {
   registerTagTools(server, client);
   registerSearchTools(server, client);
   registerResourceTools(server, client);
+  registerRevisionTools(server, client);
+  registerSystemTools(server, client);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
