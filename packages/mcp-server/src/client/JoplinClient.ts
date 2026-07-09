@@ -100,12 +100,16 @@ export class JoplinClient {
     });
   }
 
-  async deleteNote(id: string): Promise<void> {
-    await this.request<void>(`/notes/${id}`, { method: 'DELETE' });
+  async deleteNote(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/notes/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
   }
 
-  async listNotes(options: { parentId?: string; limit?: number } = {}): Promise<Note[]> {
-    const path = options.parentId ? `/folders/${options.parentId}/notes` : '/notes';
+  async listNotes(options: { parentId?: string; tagId?: string; limit?: number } = {}): Promise<Note[]> {
+    const path = options.tagId
+      ? `/tags/${options.tagId}/notes`
+      : options.parentId
+        ? `/folders/${options.parentId}/notes`
+        : '/notes';
     return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
   }
 
