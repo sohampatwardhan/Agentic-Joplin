@@ -619,6 +619,19 @@ describe('JoplinClient notes', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('listNotes scoped to a notebook handles a bare-array response from the relation endpoint', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 'n1', parent_id: 'nb1', title: 'A' }]), { status: 200 }),
+    );
+    const client = new JoplinClient(config, fetchImpl);
+
+    const notes = await client.listNotes({ parentId: 'nb1' });
+
+    expect(notes).toEqual([{ id: 'n1', parent_id: 'nb1', title: 'A' }]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/folders/nb1/notes');
+  });
+
   it('throws JoplinConnectionError when fetch rejects', async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     const client = new JoplinClient(config, fetchImpl);
@@ -701,7 +714,13 @@ export class JoplinClient {
     const results: T[] = [];
     let page = 1;
     while (results.length < cap) {
-      const response = await this.request<ListResponse<T>>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
+        results.push(...response);
+        break;
+      }
       results.push(...response.items);
       if (!response.has_more) break;
       page += 1;
@@ -749,7 +768,7 @@ export class JoplinClient {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test --workspace @agentic-joplin/mcp-server`
-Expected: PASS (8 tests). `listNotebooks` has no test yet — it is covered in Task 7.
+Expected: PASS (9 tests). `listNotebooks` has no test yet — it is covered in Task 7.
 
 - [ ] **Step 5: Commit**
 
@@ -961,7 +980,13 @@ export class JoplinClient {
     const results: T[] = [];
     let page = 1;
     while (results.length < cap) {
-      const response = await this.request<ListResponse<T>>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
+        results.push(...response);
+        break;
+      }
       results.push(...response.items);
       if (!response.has_more) break;
       page += 1;
@@ -1277,7 +1302,13 @@ export class JoplinClient {
     const results: T[] = [];
     let page = 1;
     while (results.length < cap) {
-      const response = await this.request<ListResponse<T>>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
+        results.push(...response);
+        break;
+      }
       results.push(...response.items);
       if (!response.has_more) break;
       page += 1;
@@ -2457,4 +2488,2269 @@ Joplin desktop must be running with the Web Clipper service enabled for any tool
 ```bash
 git add packages/mcp-server/SMOKE_TEST.md packages/mcp-server/README.md
 git commit -m "docs: add smoke-test checklist and package README"
+```
+
+---
+
+## Task 16: JoplinClient — permanent delete & tag-scoped note listing
+
+**Files:**
+- Modify: `packages/mcp-server/src/client/JoplinClient.ts`
+- Test: `packages/mcp-server/test/client/JoplinClient.deleteAndTagScoping.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { JoplinClient } from '../../src/client/JoplinClient.js';
+
+const config = { token: 'test-token', host: '127.0.0.1', port: 41184 };
+
+describe('JoplinClient permanent delete and tag-scoped listing', () => {
+  it('deleteNote sends permanent=1 when requested', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteNote('n1', { permanent: true });
+
+    const url = new URL(fetchImpl.mock.calls[0][0]);
+    expect(url.pathname).toBe('/notes/n1');
+    expect(url.searchParams.get('permanent')).toBe('1');
+  });
+
+  it('deleteNote omits the permanent param by default', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteNote('n1');
+
+    const url = new URL(fetchImpl.mock.calls[0][0]);
+    expect(url.searchParams.has('permanent')).toBe(false);
+  });
+
+  it('listNotes scoped to a tag requests /tags/:id/notes', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([{ id: 'n1', parent_id: 'nb1', title: 'A' }]), { status: 200 }),
+    );
+    const client = new JoplinClient(config, fetchImpl);
+
+    const notes = await client.listNotes({ tagId: 'tag1' });
+
+    expect(notes).toEqual([{ id: 'n1', parent_id: 'nb1', title: 'A' }]);
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/tags/tag1/notes');
+  });
+
+  it('listNotes prefers tagId over parentId when both are given', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.listNotes({ tagId: 'tag1', parentId: 'nb1' });
+
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/tags/tag1/notes');
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `deleteNote`/`listNotes` don't accept these new options, so the assertions on their outgoing request URLs fail.
+
+- [ ] **Step 3: Replace `deleteNote` and `listNotes` in `JoplinClient.ts`**
+
+Replace the existing `deleteNote` and `listNotes` methods with:
+
+```typescript
+  async deleteNote(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/notes/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async listNotes(options: { parentId?: string; tagId?: string; limit?: number } = {}): Promise<Note[]> {
+    const path = options.tagId
+      ? `/tags/${options.tagId}/notes`
+      : options.parentId
+        ? `/folders/${options.parentId}/notes`
+        : '/notes';
+    return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
+  }
+```
+
+The full file should now read:
+
+```typescript
+import { JoplinApiError, JoplinConnectionError } from './errors.js';
+import type { JoplinConfig } from '../config.js';
+import type { Note } from '../schemas/note.js';
+import type { Notebook } from '../schemas/notebook.js';
+import type { Tag } from '../schemas/tag.js';
+import type { Resource } from '../schemas/resource.js';
+
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
+const MAX_AUTO_PAGINATE_ITEMS = 200;
+const PAGE_SIZE = 100;
+
+interface ListResponse<T> {
+  items: T[];
+  has_more: boolean;
+}
+
+type QueryParams = Record<string, string | number | undefined>;
+
+export class JoplinClient {
+  constructor(
+    private readonly config: JoplinConfig,
+    private readonly fetchImpl: FetchLike = fetch,
+  ) {}
+
+  private buildUrl(path: string, params: QueryParams = {}): string {
+    const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
+    url.searchParams.set('token', this.config.token);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url.toString();
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}, params: QueryParams = {}): Promise<T> {
+    const url = this.buildUrl(path, params);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, init);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      const body = await response.text();
+      throw new JoplinApiError(response.status, body || response.statusText);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  }
+
+  private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
+    const cap = limit ?? MAX_AUTO_PAGINATE_ITEMS;
+    const results: T[] = [];
+    let page = 1;
+    while (results.length < cap) {
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        // Some relation endpoints (e.g. /folders/:id/notes) return a bare array instead of
+        // the { items, has_more } wrapper — treat that as the complete, unpaginated result.
+        results.push(...response);
+        break;
+      }
+      results.push(...response.items);
+      if (!response.has_more) break;
+      page += 1;
+    }
+    return results.slice(0, cap);
+  }
+
+  async getNote(id: string): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {}, {
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
+    });
+  }
+
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+    return this.request<Note>('/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNote(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/notes/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async listNotes(options: { parentId?: string; tagId?: string; limit?: number } = {}): Promise<Note[]> {
+    const path = options.tagId
+      ? `/tags/${options.tagId}/notes`
+      : options.parentId
+        ? `/folders/${options.parentId}/notes`
+        : '/notes';
+    return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
+  }
+
+  async listNotebooks(): Promise<Notebook[]> {
+    return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
+  }
+
+  async createNotebook(input: { title: string; parent_id?: string }): Promise<Notebook> {
+    return this.request<Notebook>('/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.listAll<Tag>('/tags', { fields: 'id,title' });
+  }
+
+  async createTag(input: { title: string }): Promise<Tag> {
+    return this.request<Tag>('/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async attachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: noteId }),
+    });
+  }
+
+  async detachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes/${noteId}`, { method: 'DELETE' });
+  }
+
+  async search(query: string, options: { type?: string; limit?: number } = {}): Promise<Note[]> {
+    return this.listAll<Note>(
+      '/search',
+      { query, type: options.type, fields: 'id,parent_id,title' },
+      options.limit,
+    );
+  }
+
+  async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
+    const form = new FormData();
+    form.set('props', JSON.stringify({ title: input.title }));
+    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    return this.request<Resource>('/resources', { method: 'POST', body: form });
+  }
+
+  async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
+    const note = await this.getNote(noteId);
+    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    return this.updateNote(noteId, { body: (note.body ?? '') + link });
+  }
+
+  async getResource(id: string): Promise<Resource> {
+    return this.request<Resource>(`/resources/${id}`, {}, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async getResourceFile(id: string): Promise<Buffer> {
+    const url = this.buildUrl(`/resources/${id}/file`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  async listNoteResources(noteId: string): Promise<Resource[]> {
+    return this.listAll<Resource>(`/notes/${noteId}/resources`, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+}
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests, including the 4 new ones in this file)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src/client/JoplinClient.ts packages/mcp-server/test/client/JoplinClient.deleteAndTagScoping.test.ts
+git commit -m "feat: add permanent delete option and tag-scoped listing to JoplinClient"
+```
+
+---
+
+## Task 17: JoplinClient — notebook & tag full CRUD
+
+**Files:**
+- Modify: `packages/mcp-server/src/client/JoplinClient.ts`
+- Test: `packages/mcp-server/test/client/JoplinClient.notebookAndTagCrud.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { JoplinClient } from '../../src/client/JoplinClient.js';
+
+const config = { token: 'test-token', host: '127.0.0.1', port: 41184 };
+
+describe('JoplinClient notebook and tag CRUD', () => {
+  it('getNotebook fetches a notebook by id', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'nb1', parent_id: '', title: 'Work' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    const notebook = await client.getNotebook('nb1');
+
+    expect(notebook.title).toBe('Work');
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/folders/nb1');
+  });
+
+  it('updateNotebook sends the given fields as JSON', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 'nb1', parent_id: 'nb2', title: 'Renamed' }), { status: 200 }),
+    );
+    const client = new JoplinClient(config, fetchImpl);
+
+    const notebook = await client.updateNotebook('nb1', { title: 'Renamed', parent_id: 'nb2' });
+
+    expect(notebook.title).toBe('Renamed');
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ title: 'Renamed', parent_id: 'nb2' });
+  });
+
+  it('deleteNotebook sends permanent=1 when requested', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteNotebook('nb1', { permanent: true });
+
+    const url = new URL(fetchImpl.mock.calls[0][0]);
+    expect(url.pathname).toBe('/folders/nb1');
+    expect(url.searchParams.get('permanent')).toBe('1');
+  });
+
+  it('getTag fetches a tag by id', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'tag1', title: 'urgent' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    const tag = await client.getTag('tag1');
+
+    expect(tag.title).toBe('urgent');
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/tags/tag1');
+  });
+
+  it('updateTag renames a tag', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'tag1', title: 'renamed' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    const tag = await client.updateTag('tag1', { title: 'renamed' });
+
+    expect(tag.title).toBe('renamed');
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ title: 'renamed' });
+  });
+
+  it('deleteTag sends a DELETE request', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteTag('tag1');
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(new URL(url).pathname).toBe('/tags/tag1');
+    expect(init.method).toBe('DELETE');
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `client.getNotebook is not a function` (and similarly for the other new methods)
+
+- [ ] **Step 3: Add notebook and tag CRUD methods to `JoplinClient.ts`**
+
+Add `getNotebook` immediately before `listNotebooks`:
+
+```typescript
+  async getNotebook(id: string): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {}, { fields: 'id,parent_id,title' });
+  }
+```
+
+Add `updateNotebook` and `deleteNotebook` immediately after `createNotebook`:
+
+```typescript
+  async updateNotebook(id: string, input: Partial<{ title: string; parent_id: string }>): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNotebook(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/folders/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+```
+
+Add `getTag` immediately before `listTags`:
+
+```typescript
+  async getTag(id: string): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {}, { fields: 'id,title' });
+  }
+```
+
+Add `updateTag` and `deleteTag` immediately after `createTag`:
+
+```typescript
+  async updateTag(id: string, input: { title: string }): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteTag(id: string): Promise<void> {
+    await this.request<void>(`/tags/${id}`, { method: 'DELETE' });
+  }
+```
+
+The full file should now read:
+
+```typescript
+import { JoplinApiError, JoplinConnectionError } from './errors.js';
+import type { JoplinConfig } from '../config.js';
+import type { Note } from '../schemas/note.js';
+import type { Notebook } from '../schemas/notebook.js';
+import type { Tag } from '../schemas/tag.js';
+import type { Resource } from '../schemas/resource.js';
+
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
+const MAX_AUTO_PAGINATE_ITEMS = 200;
+const PAGE_SIZE = 100;
+
+interface ListResponse<T> {
+  items: T[];
+  has_more: boolean;
+}
+
+type QueryParams = Record<string, string | number | undefined>;
+
+export class JoplinClient {
+  constructor(
+    private readonly config: JoplinConfig,
+    private readonly fetchImpl: FetchLike = fetch,
+  ) {}
+
+  private buildUrl(path: string, params: QueryParams = {}): string {
+    const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
+    url.searchParams.set('token', this.config.token);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url.toString();
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}, params: QueryParams = {}): Promise<T> {
+    const url = this.buildUrl(path, params);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, init);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      const body = await response.text();
+      throw new JoplinApiError(response.status, body || response.statusText);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  }
+
+  private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
+    const cap = limit ?? MAX_AUTO_PAGINATE_ITEMS;
+    const results: T[] = [];
+    let page = 1;
+    while (results.length < cap) {
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        results.push(...response);
+        break;
+      }
+      results.push(...response.items);
+      if (!response.has_more) break;
+      page += 1;
+    }
+    return results.slice(0, cap);
+  }
+
+  async getNote(id: string): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {}, {
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
+    });
+  }
+
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+    return this.request<Note>('/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNote(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/notes/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async listNotes(options: { parentId?: string; tagId?: string; limit?: number } = {}): Promise<Note[]> {
+    const path = options.tagId
+      ? `/tags/${options.tagId}/notes`
+      : options.parentId
+        ? `/folders/${options.parentId}/notes`
+        : '/notes';
+    return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
+  }
+
+  async getNotebook(id: string): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {}, { fields: 'id,parent_id,title' });
+  }
+
+  async listNotebooks(): Promise<Notebook[]> {
+    return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
+  }
+
+  async createNotebook(input: { title: string; parent_id?: string }): Promise<Notebook> {
+    return this.request<Notebook>('/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateNotebook(id: string, input: Partial<{ title: string; parent_id: string }>): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNotebook(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/folders/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async getTag(id: string): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {}, { fields: 'id,title' });
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.listAll<Tag>('/tags', { fields: 'id,title' });
+  }
+
+  async createTag(input: { title: string }): Promise<Tag> {
+    return this.request<Tag>('/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateTag(id: string, input: { title: string }): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteTag(id: string): Promise<void> {
+    await this.request<void>(`/tags/${id}`, { method: 'DELETE' });
+  }
+
+  async attachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: noteId }),
+    });
+  }
+
+  async detachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes/${noteId}`, { method: 'DELETE' });
+  }
+
+  async search(query: string, options: { type?: string; limit?: number } = {}): Promise<Note[]> {
+    return this.listAll<Note>(
+      '/search',
+      { query, type: options.type, fields: 'id,parent_id,title' },
+      options.limit,
+    );
+  }
+
+  async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
+    const form = new FormData();
+    form.set('props', JSON.stringify({ title: input.title }));
+    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    return this.request<Resource>('/resources', { method: 'POST', body: form });
+  }
+
+  async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
+    const note = await this.getNote(noteId);
+    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    return this.updateNote(noteId, { body: (note.body ?? '') + link });
+  }
+
+  async getResource(id: string): Promise<Resource> {
+    return this.request<Resource>(`/resources/${id}`, {}, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async getResourceFile(id: string): Promise<Buffer> {
+    const url = this.buildUrl(`/resources/${id}/file`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  async listNoteResources(noteId: string): Promise<Resource[]> {
+    return this.listAll<Resource>(`/notes/${noteId}/resources`, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+}
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests, including the 6 new ones in this file)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src/client/JoplinClient.ts packages/mcp-server/test/client/JoplinClient.notebookAndTagCrud.test.ts
+git commit -m "feat: add full CRUD (get/update/delete) for notebooks and tags to JoplinClient"
+```
+
+---
+
+## Task 18: JoplinClient — resource update & delete
+
+**Files:**
+- Modify: `packages/mcp-server/src/client/JoplinClient.ts`
+- Test: `packages/mcp-server/test/client/JoplinClient.resourceCrud.test.ts`
+
+- [ ] **Step 1: Write the failing test**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { JoplinClient } from '../../src/client/JoplinClient.js';
+
+const config = { token: 'test-token', host: '127.0.0.1', port: 41184 };
+
+describe('JoplinClient resource update and delete', () => {
+  it('updateResource sends JSON props only when no new file data is given', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'res1', title: 'New title' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    const resource = await client.updateResource('res1', { title: 'New title' });
+
+    expect(resource.title).toBe('New title');
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    expect(JSON.parse(init.body)).toEqual({ title: 'New title' });
+  });
+
+  it('updateResource sends multipart form data when replacing file content', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'res1', title: 'photo.jpg' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.updateResource('res1', {
+      title: 'photo.jpg',
+      data: Buffer.from('new-bytes'),
+      filename: 'photo.jpg',
+      mime: 'image/jpeg',
+    });
+
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(init.body).toBeInstanceOf(FormData);
+  });
+
+  it('deleteResource sends a DELETE request', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteResource('res1');
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(new URL(url).pathname).toBe('/resources/res1');
+    expect(init.method).toBe('DELETE');
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `client.updateResource is not a function` (and similarly for `deleteResource`)
+
+- [ ] **Step 3: Add `updateResource` and `deleteResource` to `JoplinClient.ts`**
+
+Add both methods immediately after `getResource` (before `getResourceFile`):
+
+```typescript
+  async updateResource(
+    id: string,
+    input: { title?: string; data?: Buffer; filename?: string; mime?: string },
+  ): Promise<Resource> {
+    if (input.data) {
+      const form = new FormData();
+      if (input.title !== undefined) {
+        form.set('props', JSON.stringify({ title: input.title }));
+      }
+      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
+    }
+    return this.request<Resource>(`/resources/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: input.title }),
+    });
+  }
+
+  async deleteResource(id: string): Promise<void> {
+    await this.request<void>(`/resources/${id}`, { method: 'DELETE' });
+  }
+```
+
+The `getResource` / `updateResource` / `deleteResource` / `getResourceFile` block should now read, in order:
+
+```typescript
+  async getResource(id: string): Promise<Resource> {
+    return this.request<Resource>(`/resources/${id}`, {}, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async updateResource(
+    id: string,
+    input: { title?: string; data?: Buffer; filename?: string; mime?: string },
+  ): Promise<Resource> {
+    if (input.data) {
+      const form = new FormData();
+      if (input.title !== undefined) {
+        form.set('props', JSON.stringify({ title: input.title }));
+      }
+      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
+    }
+    return this.request<Resource>(`/resources/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: input.title }),
+    });
+  }
+
+  async deleteResource(id: string): Promise<void> {
+    await this.request<void>(`/resources/${id}`, { method: 'DELETE' });
+  }
+
+  async getResourceFile(id: string): Promise<Buffer> {
+    const url = this.buildUrl(`/resources/${id}/file`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+```
+
+Everything else in the file (all methods before `getResource` and `listNoteResources` after `getResourceFile`) is unchanged from Task 17.
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests, including the 3 new ones in this file)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src/client/JoplinClient.ts packages/mcp-server/test/client/JoplinClient.resourceCrud.test.ts
+git commit -m "feat: add updateResource and deleteResource to JoplinClient"
+```
+
+---
+
+## Task 19: JoplinClient — note revisions & ping
+
+**Files:**
+- Create: `packages/mcp-server/src/schemas/revision.ts`
+- Modify: `packages/mcp-server/src/client/JoplinClient.ts`
+- Modify: `packages/mcp-server/test/schemas.test.ts`
+- Test: `packages/mcp-server/test/client/JoplinClient.revisionsAndPing.test.ts`
+
+- [ ] **Step 1: Write the failing test for the `Revision` schema**
+
+Add this import and `describe` block to `packages/mcp-server/test/schemas.test.ts`:
+
+```typescript
+import { RevisionSchema } from '../src/schemas/revision.js';
+```
+
+```typescript
+describe('RevisionSchema', () => {
+  it('parses a valid revision', () => {
+    const revision = RevisionSchema.parse({
+      id: 'rev-1',
+      item_type: 1,
+      item_id: 'note-1',
+      title_diff: '...',
+      body_diff: '...',
+      created_time: 1,
+      updated_time: 2,
+    });
+    expect(revision.item_id).toBe('note-1');
+  });
+
+  it('rejects a revision missing a required field', () => {
+    expect(() => RevisionSchema.parse({ id: 'rev-1' })).toThrow();
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `Cannot find module '../src/schemas/revision.js'`
+
+- [ ] **Step 3: Write `packages/mcp-server/src/schemas/revision.ts`**
+
+```typescript
+import { z } from 'zod';
+
+export const RevisionSchema = z.object({
+  id: z.string(),
+  item_type: z.number(),
+  item_id: z.string(),
+  title_diff: z.string().optional(),
+  body_diff: z.string().optional(),
+  created_time: z.number().optional(),
+  updated_time: z.number().optional(),
+});
+
+export type Revision = z.infer<typeof RevisionSchema>;
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests in `schemas.test.ts`, including the 2 new ones)
+
+- [ ] **Step 5: Write the failing test for `listRevisions`, `deleteNoteRevisions`, and `ping`**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { JoplinClient } from '../../src/client/JoplinClient.js';
+
+const config = { token: 'test-token', host: '127.0.0.1', port: 41184 };
+
+describe('JoplinClient revisions and ping', () => {
+  it('listRevisions filters the account-wide revision scan to the given note', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          items: [
+            { id: 'rev1', item_type: 1, item_id: 'note1', created_time: 2 },
+            { id: 'rev2', item_type: 1, item_id: 'note2', created_time: 1 },
+            { id: 'rev3', item_type: 2, item_id: 'note1', created_time: 3 },
+          ],
+          has_more: false,
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = new JoplinClient(config, fetchImpl);
+
+    const revisions = await client.listRevisions('note1');
+
+    expect(revisions).toEqual([{ id: 'rev1', item_type: 1, item_id: 'note1', created_time: 2 }]);
+    const url = new URL(fetchImpl.mock.calls[0][0]);
+    expect(url.pathname).toBe('/revisions');
+    expect(url.searchParams.get('order_by')).toBe('created_time');
+    expect(url.searchParams.get('order_dir')).toBe('DESC');
+  });
+
+  it('deleteNoteRevisions sends a DELETE to the note revisions endpoint', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.deleteNoteRevisions('note1');
+
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(new URL(url).pathname).toBe('/notes/note1/revisions');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('ping returns true when the Data API responds with JoplinClipperServer', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('JoplinClipperServer', { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await expect(client.ping()).resolves.toBe(true);
+  });
+
+  it('ping returns false when the response body does not match', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response('SomethingElse', { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await expect(client.ping()).resolves.toBe(false);
+  });
+
+  it('ping throws JoplinConnectionError when fetch rejects', async () => {
+    const { JoplinConnectionError } = await import('../../src/client/errors.js');
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await expect(client.ping()).rejects.toBeInstanceOf(JoplinConnectionError);
+  });
+});
+```
+
+- [ ] **Step 6: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `client.listRevisions is not a function` (and similarly for `deleteNoteRevisions`, `ping`)
+
+- [ ] **Step 7: Add revisions and ping support to `JoplinClient.ts`**
+
+Add a `Revision` import alongside the existing imports:
+
+```typescript
+import type { Revision } from '../schemas/revision.js';
+```
+
+Add two new constants alongside `MAX_AUTO_PAGINATE_ITEMS` and `PAGE_SIZE`:
+
+```typescript
+const REVISION_SCAN_LIMIT = 500;
+const NOTE_ITEM_TYPE = 1;
+```
+
+Add `listRevisions`, `deleteNoteRevisions`, and `ping` at the end of the class, after `listNoteResources`:
+
+```typescript
+  async listRevisions(noteId: string): Promise<Revision[]> {
+    const revisions = await this.listAll<Revision>(
+      '/revisions',
+      {
+        fields: 'id,item_type,item_id,title_diff,body_diff,created_time,updated_time',
+        order_by: 'created_time',
+        order_dir: 'DESC',
+      },
+      REVISION_SCAN_LIMIT,
+    );
+    return revisions.filter((revision) => revision.item_type === NOTE_ITEM_TYPE && revision.item_id === noteId);
+  }
+
+  async deleteNoteRevisions(noteId: string): Promise<void> {
+    await this.request<void>(`/notes/${noteId}/revisions`, { method: 'DELETE' });
+  }
+
+  async ping(): Promise<boolean> {
+    const url = this.buildUrl('/ping');
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    const text = await response.text();
+    return text === 'JoplinClipperServer';
+  }
+```
+
+The full file should now read (this is the final, complete state of `JoplinClient.ts`):
+
+```typescript
+import { JoplinApiError, JoplinConnectionError } from './errors.js';
+import type { JoplinConfig } from '../config.js';
+import type { Note } from '../schemas/note.js';
+import type { Notebook } from '../schemas/notebook.js';
+import type { Tag } from '../schemas/tag.js';
+import type { Resource } from '../schemas/resource.js';
+import type { Revision } from '../schemas/revision.js';
+
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
+const MAX_AUTO_PAGINATE_ITEMS = 200;
+const PAGE_SIZE = 100;
+const REVISION_SCAN_LIMIT = 500;
+const NOTE_ITEM_TYPE = 1;
+
+interface ListResponse<T> {
+  items: T[];
+  has_more: boolean;
+}
+
+type QueryParams = Record<string, string | number | undefined>;
+
+export class JoplinClient {
+  constructor(
+    private readonly config: JoplinConfig,
+    private readonly fetchImpl: FetchLike = fetch,
+  ) {}
+
+  private buildUrl(path: string, params: QueryParams = {}): string {
+    const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
+    url.searchParams.set('token', this.config.token);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+    return url.toString();
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}, params: QueryParams = {}): Promise<T> {
+    const url = this.buildUrl(path, params);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, init);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      const body = await response.text();
+      throw new JoplinApiError(response.status, body || response.statusText);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  }
+
+  private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
+    const cap = limit ?? MAX_AUTO_PAGINATE_ITEMS;
+    const results: T[] = [];
+    let page = 1;
+    while (results.length < cap) {
+      const response = await this.request<ListResponse<T> | T[]>(path, {}, { ...params, page, limit: PAGE_SIZE });
+      if (Array.isArray(response)) {
+        results.push(...response);
+        break;
+      }
+      results.push(...response.items);
+      if (!response.has_more) break;
+      page += 1;
+    }
+    return results.slice(0, cap);
+  }
+
+  async getNote(id: string): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {}, {
+      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
+    });
+  }
+
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+    return this.request<Note>('/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+    return this.request<Note>(`/notes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNote(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/notes/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async listNotes(options: { parentId?: string; tagId?: string; limit?: number } = {}): Promise<Note[]> {
+    const path = options.tagId
+      ? `/tags/${options.tagId}/notes`
+      : options.parentId
+        ? `/folders/${options.parentId}/notes`
+        : '/notes';
+    return this.listAll<Note>(path, { fields: 'id,parent_id,title,created_time,updated_time' }, options.limit);
+  }
+
+  async getNotebook(id: string): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {}, { fields: 'id,parent_id,title' });
+  }
+
+  async listNotebooks(): Promise<Notebook[]> {
+    return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
+  }
+
+  async createNotebook(input: { title: string; parent_id?: string }): Promise<Notebook> {
+    return this.request<Notebook>('/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateNotebook(id: string, input: Partial<{ title: string; parent_id: string }>): Promise<Notebook> {
+    return this.request<Notebook>(`/folders/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteNotebook(id: string, options: { permanent?: boolean } = {}): Promise<void> {
+    await this.request<void>(`/folders/${id}`, { method: 'DELETE' }, options.permanent ? { permanent: 1 } : {});
+  }
+
+  async getTag(id: string): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {}, { fields: 'id,title' });
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.listAll<Tag>('/tags', { fields: 'id,title' });
+  }
+
+  async createTag(input: { title: string }): Promise<Tag> {
+    return this.request<Tag>('/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async updateTag(id: string, input: { title: string }): Promise<Tag> {
+    return this.request<Tag>(`/tags/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deleteTag(id: string): Promise<void> {
+    await this.request<void>(`/tags/${id}`, { method: 'DELETE' });
+  }
+
+  async attachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: noteId }),
+    });
+  }
+
+  async detachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes/${noteId}`, { method: 'DELETE' });
+  }
+
+  async search(query: string, options: { type?: string; limit?: number } = {}): Promise<Note[]> {
+    return this.listAll<Note>(
+      '/search',
+      { query, type: options.type, fields: 'id,parent_id,title' },
+      options.limit,
+    );
+  }
+
+  async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
+    const form = new FormData();
+    form.set('props', JSON.stringify({ title: input.title }));
+    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    return this.request<Resource>('/resources', { method: 'POST', body: form });
+  }
+
+  async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
+    const note = await this.getNote(noteId);
+    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    return this.updateNote(noteId, { body: (note.body ?? '') + link });
+  }
+
+  async getResource(id: string): Promise<Resource> {
+    return this.request<Resource>(`/resources/${id}`, {}, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async updateResource(
+    id: string,
+    input: { title?: string; data?: Buffer; filename?: string; mime?: string },
+  ): Promise<Resource> {
+    if (input.data) {
+      const form = new FormData();
+      if (input.title !== undefined) {
+        form.set('props', JSON.stringify({ title: input.title }));
+      }
+      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
+    }
+    return this.request<Resource>(`/resources/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: input.title }),
+    });
+  }
+
+  async deleteResource(id: string): Promise<void> {
+    await this.request<void>(`/resources/${id}`, { method: 'DELETE' });
+  }
+
+  async getResourceFile(id: string): Promise<Buffer> {
+    const url = this.buildUrl(`/resources/${id}/file`);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  async listNoteResources(noteId: string): Promise<Resource[]> {
+    return this.listAll<Resource>(`/notes/${noteId}/resources`, {
+      fields: 'id,title,mime,file_extension,size',
+    });
+  }
+
+  async listRevisions(noteId: string): Promise<Revision[]> {
+    const revisions = await this.listAll<Revision>(
+      '/revisions',
+      {
+        fields: 'id,item_type,item_id,title_diff,body_diff,created_time,updated_time',
+        order_by: 'created_time',
+        order_dir: 'DESC',
+      },
+      REVISION_SCAN_LIMIT,
+    );
+    return revisions.filter((revision) => revision.item_type === NOTE_ITEM_TYPE && revision.item_id === noteId);
+  }
+
+  async deleteNoteRevisions(noteId: string): Promise<void> {
+    await this.request<void>(`/notes/${noteId}/revisions`, { method: 'DELETE' });
+  }
+
+  async ping(): Promise<boolean> {
+    const url = this.buildUrl('/ping');
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    const text = await response.text();
+    return text === 'JoplinClipperServer';
+  }
+}
+```
+
+This is now the complete, final `JoplinClient.ts` for the expanded scope — every method listed in the design spec's `JoplinClient` methods section.
+
+- [ ] **Step 8: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests, including the 5 new ones in this file)
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add packages/mcp-server/src/schemas/revision.ts packages/mcp-server/src/client/JoplinClient.ts packages/mcp-server/test/schemas.test.ts packages/mcp-server/test/client/JoplinClient.revisionsAndPing.test.ts
+git commit -m "feat: add note revisions and ping to JoplinClient"
+```
+
+---
+
+## Task 20: Note, notebook, and tag tool extensions
+
+**Files:**
+- Modify: `packages/mcp-server/src/tools/notes.ts`
+- Modify: `packages/mcp-server/src/tools/notebooks.ts`
+- Modify: `packages/mcp-server/src/tools/tags.ts`
+- Modify: `packages/mcp-server/test/tools/notes.test.ts`
+- Modify: `packages/mcp-server/test/tools/notebooks.test.ts`
+- Modify: `packages/mcp-server/test/tools/tags.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Add these tests to `packages/mcp-server/test/tools/notes.test.ts` (inside the existing `describe('registerNoteTools', ...)` block):
+
+```typescript
+  it('delete_note forwards the permanent flag', async () => {
+    const client = { deleteNote: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('delete_note')!.handler({ note_id: 'n1', permanent: true });
+
+    expect(client.deleteNote).toHaveBeenCalledWith('n1', { permanent: true });
+  });
+
+  it('list_notes forwards tag_id to JoplinClient.listNotes', async () => {
+    const client = { listNotes: vi.fn().mockResolvedValue([]) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('list_notes')!.handler({ tag_id: 'tag1' });
+
+    expect(client.listNotes).toHaveBeenCalledWith({ parentId: undefined, tagId: 'tag1', limit: undefined });
+  });
+```
+
+Add these tests to `packages/mcp-server/test/tools/notebooks.test.ts` (inside the existing `describe('registerNotebookTools', ...)` block):
+
+```typescript
+  it('get_notebook calls JoplinClient.getNotebook with the given id', async () => {
+    const client = { getNotebook: vi.fn().mockResolvedValue({ id: 'nb1', parent_id: '', title: 'Work' }) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    const result = await server.tools.get('get_notebook')!.handler({ notebook_id: 'nb1' });
+
+    expect(client.getNotebook).toHaveBeenCalledWith('nb1');
+    expect(JSON.parse(result.content[0].text).title).toBe('Work');
+  });
+
+  it('update_notebook forwards title and parent_id', async () => {
+    const client = { updateNotebook: vi.fn().mockResolvedValue({ id: 'nb1', parent_id: 'nb2', title: 'Renamed' }) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    await server.tools.get('update_notebook')!.handler({ notebook_id: 'nb1', title: 'Renamed', parent_id: 'nb2' });
+
+    expect(client.updateNotebook).toHaveBeenCalledWith('nb1', { title: 'Renamed', parent_id: 'nb2' });
+  });
+
+  it('delete_notebook forwards the permanent flag', async () => {
+    const client = { deleteNotebook: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    await server.tools.get('delete_notebook')!.handler({ notebook_id: 'nb1', permanent: true });
+
+    expect(client.deleteNotebook).toHaveBeenCalledWith('nb1', { permanent: true });
+  });
+```
+
+Add these tests to `packages/mcp-server/test/tools/tags.test.ts` (inside the existing `describe('registerTagTools', ...)` block):
+
+```typescript
+  it('get_tag calls JoplinClient.getTag with the given id', async () => {
+    const client = { getTag: vi.fn().mockResolvedValue({ id: 't1', title: 'urgent' }) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    const result = await server.tools.get('get_tag')!.handler({ tag_id: 't1' });
+
+    expect(client.getTag).toHaveBeenCalledWith('t1');
+    expect(JSON.parse(result.content[0].text).title).toBe('urgent');
+  });
+
+  it('update_tag renames a tag', async () => {
+    const client = { updateTag: vi.fn().mockResolvedValue({ id: 't1', title: 'renamed' }) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    await server.tools.get('update_tag')!.handler({ tag_id: 't1', title: 'renamed' });
+
+    expect(client.updateTag).toHaveBeenCalledWith('t1', { title: 'renamed' });
+  });
+
+  it('delete_tag calls JoplinClient.deleteTag with the given id', async () => {
+    const client = { deleteTag: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    await server.tools.get('delete_tag')!.handler({ tag_id: 't1' });
+
+    expect(client.deleteTag).toHaveBeenCalledWith('t1');
+  });
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `delete_note`/`list_notes` don't yet accept `permanent`/`tag_id`, and `get_notebook`, `update_notebook`, `delete_notebook`, `get_tag`, `update_tag`, `delete_tag` don't exist yet.
+
+- [ ] **Step 3: Update `packages/mcp-server/src/tools/notes.ts`**
+
+Replace the `delete_note` and `list_notes` tool registrations with:
+
+```typescript
+  server.registerTool(
+    'delete_note',
+    {
+      description: 'Delete a Joplin note by ID.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note to delete'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
+      },
+    },
+    async ({ note_id, permanent }) => {
+      try {
+        await client.deleteNote(note_id, { permanent });
+        return { content: [{ type: 'text' as const, text: `Deleted note ${note_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_notes',
+    {
+      description: 'List Joplin notes, optionally scoped to a notebook or tag.',
+      inputSchema: {
+        notebook_id: z.string().optional().describe('Only list notes in this notebook ID'),
+        tag_id: z.string().optional().describe('Only list notes with this tag ID (takes priority over notebook_id)'),
+        limit: z.number().int().positive().optional().describe('Maximum number of notes to return'),
+      },
+    },
+    async ({ notebook_id, tag_id, limit }) => {
+      try {
+        const notes = await client.listNotes({ parentId: notebook_id, tagId: tag_id, limit });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notes) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+```
+
+- [ ] **Step 4: Rewrite `packages/mcp-server/src/tools/notebooks.ts`**
+
+```typescript
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { JoplinClient } from '../client/JoplinClient.js';
+import { buildNotebookTree } from '../client/notebookTree.js';
+import { toToolError } from './toolError.js';
+
+export function registerNotebookTools(server: McpServer, client: JoplinClient): void {
+  server.registerTool(
+    'get_notebook',
+    {
+      description: 'Fetch a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to fetch'),
+      },
+    },
+    async ({ notebook_id }) => {
+      try {
+        const notebook = await client.getNotebook(notebook_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_notebooks',
+    {
+      description: 'List Joplin notebooks as both a flat list and a nested tree (notebooks can be nested).',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const notebooks = await client.listNotebooks();
+        const tree = buildNotebookTree(notebooks);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ flat: notebooks, tree }) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'create_notebook',
+    {
+      description: 'Create a new Joplin notebook, optionally nested under a parent notebook.',
+      inputSchema: {
+        title: z.string().describe('Notebook title'),
+        parent_id: z.string().optional().describe('ID of the parent notebook, for nesting'),
+      },
+    },
+    async ({ title, parent_id }) => {
+      try {
+        const notebook = await client.createNotebook({ title, parent_id });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_notebook',
+    {
+      description: 'Rename and/or move a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to update'),
+        title: z.string().optional().describe('New title'),
+        parent_id: z.string().optional().describe('New parent notebook ID, to move this notebook'),
+      },
+    },
+    async ({ notebook_id, title, parent_id }) => {
+      try {
+        const notebook = await client.updateNotebook(notebook_id, { title, parent_id });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_notebook',
+    {
+      description: 'Delete a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to delete'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
+      },
+    },
+    async ({ notebook_id, permanent }) => {
+      try {
+        await client.deleteNotebook(notebook_id, { permanent });
+        return { content: [{ type: 'text' as const, text: `Deleted notebook ${notebook_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 5: Rewrite `packages/mcp-server/src/tools/tags.ts`**
+
+```typescript
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { JoplinClient } from '../client/JoplinClient.js';
+import { toToolError } from './toolError.js';
+
+export function registerTagTools(server: McpServer, client: JoplinClient): void {
+  server.registerTool(
+    'get_tag',
+    {
+      description: 'Fetch a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to fetch'),
+      },
+    },
+    async ({ tag_id }) => {
+      try {
+        const tag = await client.getTag(tag_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_tags',
+    {
+      description: 'List all Joplin tags.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const tags = await client.listTags();
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tags) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'create_tag',
+    {
+      description: 'Create a new Joplin tag.',
+      inputSchema: {
+        title: z.string().describe('Tag title'),
+      },
+    },
+    async ({ title }) => {
+      try {
+        const tag = await client.createTag({ title });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_tag',
+    {
+      description: 'Rename a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to rename'),
+        title: z.string().describe('New tag title'),
+      },
+    },
+    async ({ tag_id, title }) => {
+      try {
+        const tag = await client.updateTag(tag_id, { title });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_tag',
+    {
+      description: 'Delete a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to delete'),
+      },
+    },
+    async ({ tag_id }) => {
+      try {
+        await client.deleteTag(tag_id);
+        return { content: [{ type: 'text' as const, text: `Deleted tag ${tag_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'tag_note',
+    {
+      description: 'Attach an existing tag to a note.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+        tag_id: z.string().describe('ID of the tag to attach'),
+      },
+    },
+    async ({ note_id, tag_id }) => {
+      try {
+        await client.attachTag(note_id, tag_id);
+        return { content: [{ type: 'text' as const, text: `Attached tag ${tag_id} to note ${note_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'untag_note',
+    {
+      description: 'Detach a tag from a note.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+        tag_id: z.string().describe('ID of the tag to detach'),
+      },
+    },
+    async ({ note_id, tag_id }) => {
+      try {
+        await client.detachTag(note_id, tag_id);
+        return { content: [{ type: 'text' as const, text: `Detached tag ${tag_id} from note ${note_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 6: Run the tests to verify they pass**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests in `notes.test.ts`, `notebooks.test.ts`, and `tags.test.ts`)
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add packages/mcp-server/src/tools/notes.ts packages/mcp-server/src/tools/notebooks.ts packages/mcp-server/src/tools/tags.ts packages/mcp-server/test/tools/notes.test.ts packages/mcp-server/test/tools/notebooks.test.ts packages/mcp-server/test/tools/tags.test.ts
+git commit -m "feat: add get/update/delete MCP tools for notes, notebooks, and tags"
+```
+
+---
+
+## Task 21: Resource tool extensions
+
+**Files:**
+- Modify: `packages/mcp-server/src/tools/resources.ts`
+- Modify: `packages/mcp-server/test/tools/resources.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Add these tests to `packages/mcp-server/test/tools/resources.test.ts` (inside the existing `describe('registerResourceTools', ...)` block):
+
+```typescript
+  it('update_resource sends props-only update when no new file is given', async () => {
+    const client = { updateResource: vi.fn().mockResolvedValue({ id: 'res1', title: 'New title' }) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('update_resource')!.handler({ resource_id: 'res1', title: 'New title' });
+
+    expect(client.updateResource).toHaveBeenCalledWith('res1', {
+      title: 'New title',
+      data: undefined,
+      filename: undefined,
+      mime: undefined,
+    });
+  });
+
+  it('update_resource decodes base64 file content when replacing the file', async () => {
+    const client = { updateResource: vi.fn().mockResolvedValue({ id: 'res1', title: 'photo.jpg' }) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('update_resource')!.handler({
+      resource_id: 'res1',
+      filename: 'photo.jpg',
+      file_base64: Buffer.from('new-bytes').toString('base64'),
+      mime: 'image/jpeg',
+    });
+
+    expect(client.updateResource).toHaveBeenCalledWith('res1', {
+      title: undefined,
+      data: Buffer.from('new-bytes'),
+      filename: 'photo.jpg',
+      mime: 'image/jpeg',
+    });
+  });
+
+  it('delete_resource calls JoplinClient.deleteResource with the given id', async () => {
+    const client = { deleteResource: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    await server.tools.get('delete_resource')!.handler({ resource_id: 'res1' });
+
+    expect(client.deleteResource).toHaveBeenCalledWith('res1');
+  });
+
+  it('list_note_resources calls JoplinClient.listNoteResources with the given note id', async () => {
+    const client = { listNoteResources: vi.fn().mockResolvedValue([{ id: 'res1', title: 'photo.jpg' }]) };
+    const server = createFakeServer();
+    registerResourceTools(server as any, client as any);
+
+    const result = await server.tools.get('list_note_resources')!.handler({ note_id: 'note1' });
+
+    expect(client.listNoteResources).toHaveBeenCalledWith('note1');
+    expect(JSON.parse(result.content[0].text)).toEqual([{ id: 'res1', title: 'photo.jpg' }]);
+  });
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `update_resource`, `delete_resource`, and `list_note_resources` don't exist yet.
+
+- [ ] **Step 3: Rewrite `packages/mcp-server/src/tools/resources.ts`**
+
+```typescript
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { JoplinClient } from '../client/JoplinClient.js';
+import { toToolError } from './toolError.js';
+
+export function registerResourceTools(server: McpServer, client: JoplinClient): void {
+  server.registerTool(
+    'attach_resource',
+    {
+      description: 'Upload a file and attach it to a note as a resource.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note to attach the file to'),
+        filename: z.string().describe('File name, including extension'),
+        file_base64: z.string().describe('Base64-encoded file content'),
+        title: z.string().optional().describe('Resource title; defaults to the filename'),
+        mime: z.string().optional().describe('MIME type of the file'),
+      },
+    },
+    async ({ note_id, filename, file_base64, title, mime }) => {
+      try {
+        const data = Buffer.from(file_base64, 'base64');
+        const resourceTitle = title ?? filename;
+        const resource = await client.createResource({ title: resourceTitle, filename, data, mime });
+        const note = await client.attachResourceToNote(note_id, resource.id, resourceTitle);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ resource, note }) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_resource',
+    {
+      description: "Fetch a resource's metadata, and optionally its file content as base64.",
+      inputSchema: {
+        resource_id: z.string().describe('ID of the resource'),
+        include_content: z.boolean().optional().describe('Include the base64-encoded file content'),
+      },
+    },
+    async ({ resource_id, include_content }) => {
+      try {
+        const resource = await client.getResource(resource_id);
+        if (!include_content) {
+          return { content: [{ type: 'text' as const, text: JSON.stringify(resource) }] };
+        }
+        const file = await client.getResourceFile(resource_id);
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({ ...resource, content_base64: file.toString('base64') }),
+            },
+          ],
+        };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_resource',
+    {
+      description: "Rename a resource and/or replace its file content.",
+      inputSchema: {
+        resource_id: z.string().describe('ID of the resource to update'),
+        title: z.string().optional().describe('New title'),
+        filename: z.string().optional().describe('New file name, if replacing content'),
+        file_base64: z.string().optional().describe('Base64-encoded new file content, if replacing content'),
+        mime: z.string().optional().describe('MIME type of the new file content'),
+      },
+    },
+    async ({ resource_id, title, filename, file_base64, mime }) => {
+      try {
+        const data = file_base64 !== undefined ? Buffer.from(file_base64, 'base64') : undefined;
+        const resource = await client.updateResource(resource_id, { title, data, filename, mime });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(resource) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_resource',
+    {
+      description: 'Delete a resource by ID.',
+      inputSchema: {
+        resource_id: z.string().describe('ID of the resource to delete'),
+      },
+    },
+    async ({ resource_id }) => {
+      try {
+        await client.deleteResource(resource_id);
+        return { content: [{ type: 'text' as const, text: `Deleted resource ${resource_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'list_note_resources',
+    {
+      description: 'List resources attached to a note.',
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+      },
+    },
+    async ({ note_id }) => {
+      try {
+        const resources = await client.listNoteResources(note_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(resources) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (all tests in `resources.test.ts`)
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src/tools/resources.ts packages/mcp-server/test/tools/resources.test.ts
+git commit -m "feat: add update_resource, delete_resource, and list_note_resources MCP tools"
+```
+
+---
+
+## Task 22: Revision & ping tools
+
+**Files:**
+- Create: `packages/mcp-server/src/tools/revisions.ts`
+- Create: `packages/mcp-server/src/tools/system.ts`
+- Test: `packages/mcp-server/test/tools/revisions.test.ts`
+- Test: `packages/mcp-server/test/tools/system.test.ts`
+
+- [ ] **Step 1: Write the failing test for revision tools**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { registerRevisionTools } from '../../src/tools/revisions.js';
+
+function createFakeServer() {
+  const tools = new Map();
+  return {
+    registerTool(name: string, config: any, handler: any) {
+      tools.set(name, { config, handler });
+    },
+    tools,
+  };
+}
+
+describe('registerRevisionTools', () => {
+  it('list_note_revisions calls JoplinClient.listRevisions with the given note id', async () => {
+    const client = { listRevisions: vi.fn().mockResolvedValue([{ id: 'rev1', item_type: 1, item_id: 'note1' }]) };
+    const server = createFakeServer();
+    registerRevisionTools(server as any, client as any);
+
+    const result = await server.tools.get('list_note_revisions')!.handler({ note_id: 'note1' });
+
+    expect(client.listRevisions).toHaveBeenCalledWith('note1');
+    expect(JSON.parse(result.content[0].text)).toEqual([{ id: 'rev1', item_type: 1, item_id: 'note1' }]);
+  });
+
+  it('delete_note_revisions calls JoplinClient.deleteNoteRevisions with the given note id', async () => {
+    const client = { deleteNoteRevisions: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerRevisionTools(server as any, client as any);
+
+    await server.tools.get('delete_note_revisions')!.handler({ note_id: 'note1' });
+
+    expect(client.deleteNoteRevisions).toHaveBeenCalledWith('note1');
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `Cannot find module '../../src/tools/revisions.js'`
+
+- [ ] **Step 3: Write `packages/mcp-server/src/tools/revisions.ts`**
+
+```typescript
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { JoplinClient } from '../client/JoplinClient.js';
+import { toToolError } from './toolError.js';
+
+export function registerRevisionTools(server: McpServer, client: JoplinClient): void {
+  server.registerTool(
+    'list_note_revisions',
+    {
+      description:
+        "List a note's revision history. Best-effort: scans the most recent revisions account-wide since the Data API has no server-side note filter, so very old revisions on rarely-edited notes in large accounts may not surface.",
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+      },
+    },
+    async ({ note_id }) => {
+      try {
+        const revisions = await client.listRevisions(note_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(revisions) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_note_revisions',
+    {
+      description: "Permanently delete all of a note's revision history.",
+      inputSchema: {
+        note_id: z.string().describe('ID of the note'),
+      },
+    },
+    async ({ note_id }) => {
+      try {
+        await client.deleteNoteRevisions(note_id);
+        return { content: [{ type: 'text' as const, text: `Deleted revision history for note ${note_id}` }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (2 tests)
+
+- [ ] **Step 5: Write the failing test for the system (ping) tool**
+
+```typescript
+import { describe, expect, it, vi } from 'vitest';
+import { registerSystemTools } from '../../src/tools/system.js';
+
+function createFakeServer() {
+  const tools = new Map();
+  return {
+    registerTool(name: string, config: any, handler: any) {
+      tools.set(name, { config, handler });
+    },
+    tools,
+  };
+}
+
+describe('registerSystemTools', () => {
+  it('ping reports availability from JoplinClient.ping', async () => {
+    const client = { ping: vi.fn().mockResolvedValue(true) };
+    const server = createFakeServer();
+    registerSystemTools(server as any, client as any);
+
+    const result = await server.tools.get('ping')!.handler({});
+
+    expect(JSON.parse(result.content[0].text)).toEqual({ available: true });
+  });
+
+  it('ping maps a connection error to an isError tool result', async () => {
+    const { JoplinConnectionError } = await import('../../src/client/errors.js');
+    const client = { ping: vi.fn().mockRejectedValue(new JoplinConnectionError()) };
+    const server = createFakeServer();
+    registerSystemTools(server as any, client as any);
+
+    const result = await server.tools.get('ping')!.handler({});
+
+    expect(result.isError).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 6: Run the test to verify it fails**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: FAIL — `Cannot find module '../../src/tools/system.js'`
+
+- [ ] **Step 7: Write `packages/mcp-server/src/tools/system.ts`**
+
+```typescript
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { JoplinClient } from '../client/JoplinClient.js';
+import { toToolError } from './toolError.js';
+
+export function registerSystemTools(server: McpServer, client: JoplinClient): void {
+  server.registerTool(
+    'ping',
+    {
+      description: 'Check whether the Joplin Data API is reachable.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const available = await client.ping();
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ available }) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+}
+```
+
+- [ ] **Step 8: Run the test to verify it passes**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (2 tests)
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add packages/mcp-server/src/tools/revisions.ts packages/mcp-server/src/tools/system.ts packages/mcp-server/test/tools/revisions.test.ts packages/mcp-server/test/tools/system.test.ts
+git commit -m "feat: add note revision and ping MCP tools"
+```
+
+---
+
+## Task 23: Wire new tools into the server entrypoint, and update docs
+
+**Files:**
+- Modify: `packages/mcp-server/src/index.ts`
+- Modify: `packages/mcp-server/README.md`
+- Modify: `packages/mcp-server/SMOKE_TEST.md`
+
+- [ ] **Step 1: Rewrite `packages/mcp-server/src/index.ts`**
+
+```typescript
+#!/usr/bin/env node
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { loadConfig } from './config.js';
+import { JoplinClient } from './client/JoplinClient.js';
+import { registerNoteTools } from './tools/notes.js';
+import { registerNotebookTools } from './tools/notebooks.js';
+import { registerTagTools } from './tools/tags.js';
+import { registerSearchTools } from './tools/search.js';
+import { registerResourceTools } from './tools/resources.js';
+import { registerRevisionTools } from './tools/revisions.js';
+import { registerSystemTools } from './tools/system.js';
+
+async function main() {
+  const config = loadConfig(process.env);
+  const client = new JoplinClient(config);
+
+  const server = new McpServer({ name: 'agentic-joplin-mcp-server', version: '0.1.0' });
+
+  registerNoteTools(server, client);
+  registerNotebookTools(server, client);
+  registerTagTools(server, client);
+  registerSearchTools(server, client);
+  registerResourceTools(server, client);
+  registerRevisionTools(server, client);
+  registerSystemTools(server, client);
+
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('Agentic Joplin MCP server running on stdio');
+}
+
+main().catch((error) => {
+  console.error('Fatal error starting Agentic Joplin MCP server:', error);
+  process.exit(1);
+});
+```
+
+- [ ] **Step 2: Run the full test suite and the build**
+
+Run: `npm run test --workspace @agentic-joplin/mcp-server`
+Expected: PASS (every test from Tasks 2–22)
+
+Run: `npm run build --workspace @agentic-joplin/mcp-server`
+Expected: Compiles with no TypeScript errors; `packages/mcp-server/dist/index.js` is created.
+
+- [ ] **Step 3: Rewrite the tool table in `packages/mcp-server/README.md`**
+
+Replace the existing `## Tools` section with:
+
+```markdown
+## Tools
+
+Full CRUD parity with Joplin's Data API for notes, notebooks, tags, and resources, plus search, note revision history, and a connectivity check. Deliberately excludes `GET /events` (delta sync) and `GET /master_keys` (end-to-end-encryption metadata) — neither has a note-taking use case.
+
+| Tool | Purpose |
+|---|---|
+| `create_note` | Create a note in a notebook, in Markdown (default) or HTML via `format` |
+| `get_note` | Fetch a note by ID; result includes a `format` field |
+| `update_note` | Partially update a note; `format` controls how `body` is interpreted |
+| `delete_note` | Delete a note by ID, optional `permanent` flag |
+| `list_notes` | List notes, optionally scoped to a notebook or tag |
+| `get_notebook` | Fetch a notebook by ID |
+| `list_notebooks` | List notebooks as a flat list and a nested tree |
+| `create_notebook` | Create a notebook, optionally nested |
+| `update_notebook` | Rename and/or move a notebook |
+| `delete_notebook` | Delete a notebook by ID, optional `permanent` flag |
+| `get_tag` | Fetch a tag by ID |
+| `list_tags` | List all tags |
+| `create_tag` | Create a tag |
+| `update_tag` | Rename a tag |
+| `delete_tag` | Delete a tag |
+| `tag_note` / `untag_note` | Attach/detach a tag on a note |
+| `find_notes` | Full-text search |
+| `attach_resource` | Upload and attach a file to a note |
+| `get_resource` | Fetch resource metadata, optionally with file content |
+| `update_resource` | Rename and/or replace a resource's file content |
+| `delete_resource` | Delete a resource by ID |
+| `list_note_resources` | List resources attached to a note |
+| `list_note_revisions` | List a note's revision history (best-effort; see below) |
+| `delete_note_revisions` | Permanently delete all of a note's revision history |
+| `ping` | Check whether the Joplin Data API is reachable |
+
+**Known limitation:** the Data API has no server-side filter for note revisions, so `list_note_revisions` scans the 500 most recent revisions account-wide and filters client-side. On accounts with heavy edit history across many notes, very old revisions on a rarely-edited note may not surface.
+```
+
+- [ ] **Step 4: Add new checklist items to `packages/mcp-server/SMOKE_TEST.md`**
+
+Append these items to the checklist (after the existing `delete_note` item and before the "Stop the Joplin desktop app" item):
+
+```markdown
+- [ ] `update_notebook` — rename a notebook and move it under a different parent; verify both changes in Joplin's sidebar.
+- [ ] `delete_notebook` — delete a test notebook; verify it's gone (or in trash).
+- [ ] `update_tag` — rename a tag; verify the new name shows in Joplin's tag panel.
+- [ ] `delete_tag` — delete a test tag; verify it's gone.
+- [ ] `update_resource` — replace an attached file's content; verify Joplin shows the new content.
+- [ ] `delete_resource` — delete a resource; verify it's gone (note body still contains the now-broken link, which is expected).
+- [ ] `list_note_resources` — verify it lists the resources you attached earlier in this checklist.
+- [ ] `list_note_revisions` — edit a note a couple of times, then verify revisions show up.
+- [ ] `delete_note_revisions` — verify the note's revision history is cleared afterward (check Joplin's note history panel).
+- [ ] `ping` — verify it reports available while Joplin is running, and reports a connection error after Joplin is closed.
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src/index.ts packages/mcp-server/README.md packages/mcp-server/SMOKE_TEST.md
+git commit -m "feat: wire revision and ping tools into the server entrypoint; update docs"
 ```
