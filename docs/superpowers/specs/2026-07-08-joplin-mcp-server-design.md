@@ -12,7 +12,8 @@ This is a from-scratch implementation, unrelated to any third-party Joplin MCP s
 
 ## Goals
 
-- Give agents a well-typed, agent-ergonomic set of MCP tools for managing Joplin notes, notebooks (including nested notebooks), tags, search, and note resources (attachments).
+- Fully interface with Joplin's Data API as far as it makes sense for an agent to use it: full CRUD parity for notes, notebooks, tags, and resources (not just a reduced subset), plus search, note revision history, and a connectivity check — not just the minimum needed for basic note-taking.
+- Give agents a well-typed, agent-ergonomic set of MCP tools for all of the above, including nested notebooks and notes in either Markdown or HTML format.
 - Wrap Joplin's Data API (the local REST API served by the desktop app's Web Clipper service) in Phase 1.
 - Keep the Data API access isolated behind a client interface so a Phase 2 `joplin-cli`-backed implementation can be added later without reworking the tool layer.
 
@@ -20,7 +21,7 @@ This is a from-scratch implementation, unrelated to any third-party Joplin MCP s
 
 - `joplin-cli` backend support (Phase 2).
 - Joplin plugin, agent skill files (separate sub-projects/specs).
-- Full Data API surface (revisions, sync status, master keys, event log, etc.) — only core note/notebook/tag/search/resource operations.
+- Events / delta-sync (`GET /events`) and master keys (`GET /master_keys`) — deliberately excluded even though the rest of the Data API is covered. Events is a sync-watching feature with no clear agent use case here, and master keys exposes end-to-end-encryption key metadata, which is a security-adjacent surface with no note-taking use case.
 - Any HTTP transport for the MCP server itself — stdio only.
 
 ## Repo layout
@@ -39,12 +40,14 @@ Agentic-Joplin/
 │       │   │   └── JoplinClient.ts   # typed wrapper over the Joplin Data API (fetch-based)
 │       │   ├── tools/
 │       │   │   ├── notes.ts     # create/get/update/delete/list notes
-│       │   │   ├── notebooks.ts # list/create notebooks (folders), including nested tree assembly
-│       │   │   ├── tags.ts      # list/create tags, attach/detach from notes
+│       │   │   ├── notebooks.ts # get/list/create/update/delete notebooks (folders), including nested tree assembly
+│       │   │   ├── tags.ts      # get/list/create/update/delete tags, attach/detach from notes
 │       │   │   ├── search.ts    # full-text search
-│       │   │   └── resources.ts # attach/read file resources on notes
+│       │   │   ├── resources.ts # attach/get/update/delete/list resources on notes
+│       │   │   ├── revisions.ts # list/delete a note's revision history
+│       │   │   └── system.ts    # ping (connectivity check)
 │       │   ├── schemas/
-│       │   │   └── *.ts         # shared Zod schemas / TS types for Joplin entities (Note, Notebook, Tag, Resource)
+│       │   │   └── *.ts         # shared Zod schemas / TS types for Joplin entities (Note, Notebook, Tag, Resource, Revision)
 │       │   └── config.ts        # reads JOPLIN_TOKEN / JOPLIN_PORT / JOPLIN_HOST from env
 │       └── test/
 │           └── *.test.ts        # unit tests, JoplinClient mocked
@@ -64,15 +67,16 @@ Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk` (latest stable:
 
 ## `JoplinClient` methods
 
-- `getNote(id)`, `createNote(input)`, `updateNote(id, input)`, `deleteNote(id)`, `listNotes({ parentId?, limit? })`
+- **Notes:** `getNote(id)`, `createNote(input)`, `updateNote(id, input)`, `deleteNote(id, { permanent? })`, `listNotes({ parentId?, tagId?, limit? })`
 - Note format: Joplin notes are Markdown by default but may be HTML. `createNote`/`updateNote` accept either `body` (Markdown) or `body_html` (HTML), matching the Data API's own two input fields. `getNote` requests the note's `markup_language` field (1 = Markdown, 2 = HTML) and a `noteFormatFromMarkupLanguage` helper maps it to a friendly `'markdown' | 'html'` value for tool output.
-- `listNotebooks()` — returns flat items with `parent_id`; a helper assembles them into a nested tree, since notebooks can be nested like folders
-- `createNotebook(input)` — accepts optional `parent_id` for nesting
-- `listTags()`, `createTag(input)`, `attachTag(noteId, tagId)`, `detachTag(noteId, tagId)`
-- `search(query, { type?, limit? })` — wraps `/search`
-- `createResource(input, fileBuffer)`, `getResource(id)`, `listNoteResources(noteId)`
+- **Notebooks:** `getNotebook(id)`, `listNotebooks()`, `createNotebook(input)`, `updateNotebook(id, input)`, `deleteNotebook(id, { permanent? })` — `listNotebooks()` returns flat items with `parent_id`; a helper assembles them into a nested tree, since notebooks can be nested like folders. `updateNotebook` supports both renaming (`title`) and moving (`parent_id`).
+- **Tags:** `getTag(id)`, `listTags()`, `createTag(input)`, `updateTag(id, input)`, `deleteTag(id)`, `attachTag(noteId, tagId)`, `detachTag(noteId, tagId)`
+- **Search:** `search(query, { type?, limit? })` — wraps `/search`
+- **Resources:** `createResource(input)`, `getResource(id)`, `updateResource(id, input)`, `deleteResource(id)`, `getResourceFile(id)`, `listNoteResources(noteId)`, `attachResourceToNote(noteId, resourceId, title)`. `updateResource` supports both replacing file content (multipart) and renaming (JSON props-only), matching the Data API's two `PUT /resources/:id` modes.
+- **Revisions:** `listRevisions(noteId)`, `deleteNoteRevisions(noteId)`. The Data API only exposes an unscoped `GET /revisions` (no note-id filter) — `listRevisions` requests the most recent 500 revisions account-wide (`order_by=created_time&order_dir=DESC`) and filters client-side by `item_id`/`item_type`. **Known limitation:** on accounts with heavy edit history across many notes, very old revisions on a rarely-edited note may fall outside that 500-item window and not surface. This is a constraint of the underlying API (no server-side note filter), not a bug in this client.
+- **System:** `ping()` — wraps `GET /ping`, which returns the plain-text string `"JoplinClipperServer"` rather than JSON, so it bypasses the generic JSON-parsing request path and does its own `response.text()` comparison.
 
-**Pagination:** the Data API returns `{ items, has_more }`. `JoplinClient`'s list/search methods auto-paginate internally up to a capped total (e.g. 200 items) rather than exposing raw page tokens to the agent. Each corresponding tool can still accept an optional `limit` to cap results earlier.
+**Pagination:** the Data API returns `{ items, has_more }` for top-level collections (e.g. `/notes`, `/folders`, `/tags`). Some relation endpoints (e.g. `/folders/:id/notes`) are documented ambiguously and may return a bare array instead — `JoplinClient`'s internal pagination helper handles both shapes defensively (a bare array is treated as a complete, one-shot result). List/search methods auto-paginate internally up to a capped total (e.g. 200 items, 500 for revisions) rather than exposing raw page tokens to the agent. Each corresponding tool can still accept an optional `limit` to cap results earlier.
 
 ## MCP tool surface (agent-facing)
 
@@ -81,18 +85,30 @@ Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk` (latest stable:
 | `create_note` | title, body, notebook_id, optional `format` (`markdown` default, or `html`) |
 | `get_note` | fetch by id, with a fields param to avoid over-fetching; result includes a `format` field |
 | `update_note` | partial update by id; optional `format` controls how `body` is interpreted |
-| `delete_note` | delete by id |
-| `list_notes` | by notebook_id, or all, capped/paginated |
+| `delete_note` | delete by id, optional `permanent` flag |
+| `list_notes` | by notebook_id, by tag_id, or all, capped/paginated |
+| `get_notebook` | fetch a notebook by id |
 | `list_notebooks` | flat list + nested tree view |
 | `create_notebook` | title, optional parent_id |
+| `update_notebook` | rename and/or move (change parent_id) |
+| `delete_notebook` | delete by id, optional `permanent` flag |
+| `get_tag` | fetch a tag by id |
 | `list_tags` | all tags |
 | `create_tag` | title |
+| `update_tag` | rename a tag |
+| `delete_tag` | delete a tag |
 | `tag_note` / `untag_note` | attach/detach a tag to/from a note |
 | `find_notes` | full-text search, optional notebook/tag scoping |
 | `attach_resource` | upload a file and attach to a note |
 | `get_resource` | fetch resource metadata/content |
+| `update_resource` | rename and/or replace a resource's file content |
+| `delete_resource` | delete a resource by id |
+| `list_note_resources` | list resources attached to a note |
+| `list_note_revisions` | list a note's revision history (best-effort — see `listRevisions` limitation above) |
+| `delete_note_revisions` | permanently delete all of a note's revision history |
+| `ping` | check whether the Joplin Data API is reachable |
 
-This mirrors the shape of typical Joplin MCP tool conventions (e.g. verb_noun naming, one tool per resource-action), as a sanity check that the surface is agent-ergonomic.
+This mirrors the shape of typical Joplin MCP tool conventions (e.g. verb_noun naming, one tool per resource-action), as a sanity check that the surface is agent-ergonomic. Deliberately excluded: `GET /events` (delta sync) and `GET /master_keys` — see Non-goals.
 
 ## Configuration
 
