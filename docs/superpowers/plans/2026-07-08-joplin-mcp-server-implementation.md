@@ -91,7 +91,8 @@ dist/
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": false
+    "declaration": false,
+    "types": ["node"]
   },
   "include": ["src"]
 }
@@ -1223,7 +1224,7 @@ import type { Resource } from '../schemas/resource.js';
   async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
     const form = new FormData();
     form.set('props', JSON.stringify({ title: input.title }));
-    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
     return this.request<Resource>('/resources', { method: 'POST', body: form });
   }
 
@@ -1422,7 +1423,7 @@ export class JoplinClient {
   async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
     const form = new FormData();
     form.set('props', JSON.stringify({ title: input.title }));
-    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
     return this.request<Resource>('/resources', { method: 'POST', body: form });
   }
 
@@ -2800,7 +2801,7 @@ export class JoplinClient {
   async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
     const form = new FormData();
     form.set('props', JSON.stringify({ title: input.title }));
-    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
     return this.request<Resource>('/resources', { method: 'POST', body: form });
   }
 
@@ -3194,7 +3195,7 @@ export class JoplinClient {
   async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
     const form = new FormData();
     form.set('props', JSON.stringify({ title: input.title }));
-    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
     return this.request<Resource>('/resources', { method: 'POST', body: form });
   }
 
@@ -3327,7 +3328,7 @@ Add both methods immediately after `getResource` (before `getResourceFile`):
       if (input.title !== undefined) {
         form.set('props', JSON.stringify({ title: input.title }));
       }
-      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
       return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
     }
     return this.request<Resource>(`/resources/${id}`, {
@@ -3360,7 +3361,7 @@ The `getResource` / `updateResource` / `deleteResource` / `getResourceFile` bloc
       if (input.title !== undefined) {
         form.set('props', JSON.stringify({ title: input.title }));
       }
-      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
       return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
     }
     return this.request<Resource>(`/resources/${id}`, {
@@ -3793,7 +3794,7 @@ export class JoplinClient {
   async createResource(input: { title: string; filename: string; data: Buffer; mime?: string }): Promise<Resource> {
     const form = new FormData();
     form.set('props', JSON.stringify({ title: input.title }));
-    form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename);
+    form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename);
     return this.request<Resource>('/resources', { method: 'POST', body: form });
   }
 
@@ -3819,7 +3820,7 @@ export class JoplinClient {
       if (input.title !== undefined) {
         form.set('props', JSON.stringify({ title: input.title }));
       }
-      form.set('data', new Blob([input.data], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
       return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
     }
     return this.request<Resource>(`/resources/${id}`, {
