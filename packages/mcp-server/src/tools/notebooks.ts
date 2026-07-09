@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JoplinClient } from '../client/JoplinClient.js';
+import { MAX_AUTO_PAGINATE_ITEMS, type JoplinClient } from '../client/JoplinClient.js';
 import { buildNotebookTree } from '../client/notebookTree.js';
 import { toToolError } from './toolError.js';
 
@@ -27,13 +27,18 @@ export function registerNotebookTools(server: McpServer, client: JoplinClient): 
     'list_notebooks',
     {
       description: 'List Joplin notebooks as both a flat list and a nested tree (notebooks can be nested).',
-      inputSchema: {},
+      inputSchema: {
+        limit: z.number().int().positive().optional().describe('Maximum number of notebooks to return'),
+      },
     },
-    async () => {
+    async ({ limit }) => {
       try {
-        const notebooks = await client.listNotebooks();
+        const notebooks = await client.listNotebooks({ limit });
         const tree = buildNotebookTree(notebooks);
-        return { content: [{ type: 'text' as const, text: JSON.stringify({ flat: notebooks, tree }) }] };
+        const truncated = notebooks.length >= (limit ?? MAX_AUTO_PAGINATE_ITEMS);
+        return {
+          content: [{ type: 'text' as const, text: JSON.stringify({ items: notebooks, tree, truncated }) }],
+        };
       } catch (error) {
         return toToolError(error);
       }

@@ -8,7 +8,7 @@ import type { Revision } from '../schemas/revision.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
-const MAX_AUTO_PAGINATE_ITEMS = 200;
+export const MAX_AUTO_PAGINATE_ITEMS = 200;
 const PAGE_SIZE = 100;
 const REVISION_SCAN_LIMIT = 500;
 const NOTE_ITEM_TYPE = 1;
@@ -81,10 +81,14 @@ export class JoplinClient {
     return results.slice(0, cap);
   }
 
-  async getNote(id: string): Promise<Note> {
-    return this.request<Note>(`/notes/${id}`, {}, {
-      fields: 'id,parent_id,title,body,markup_language,created_time,updated_time',
-    });
+  async getNote(id: string, fields?: string): Promise<Note> {
+    const fieldList = fields
+      ? fields.split(',').map((field) => field.trim())
+      : ['id', 'parent_id', 'title', 'body', 'markup_language', 'created_time', 'updated_time'];
+    if (!fieldList.includes('markup_language')) {
+      fieldList.push('markup_language');
+    }
+    return this.request<Note>(`/notes/${id}`, {}, { fields: fieldList.join(',') });
   }
 
   async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
@@ -120,8 +124,8 @@ export class JoplinClient {
     return this.request<Notebook>(`/folders/${id}`, {}, { fields: 'id,parent_id,title' });
   }
 
-  async listNotebooks(): Promise<Notebook[]> {
-    return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
+  async listNotebooks(options: { limit?: number } = {}): Promise<Notebook[]> {
+    return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' }, options.limit);
   }
 
   async createNotebook(input: { title: string; parent_id?: string }): Promise<Notebook> {
@@ -148,8 +152,8 @@ export class JoplinClient {
     return this.request<Tag>(`/tags/${id}`, {}, { fields: 'id,title' });
   }
 
-  async listTags(): Promise<Tag[]> {
-    return this.listAll<Tag>('/tags', { fields: 'id,title' });
+  async listTags(options: { limit?: number } = {}): Promise<Tag[]> {
+    return this.listAll<Tag>('/tags', { fields: 'id,title' }, options.limit);
   }
 
   async createTag(input: { title: string }): Promise<Tag> {
@@ -249,10 +253,12 @@ export class JoplinClient {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  async listNoteResources(noteId: string): Promise<Resource[]> {
-    return this.listAll<Resource>(`/notes/${noteId}/resources`, {
-      fields: 'id,title,mime,file_extension,size',
-    });
+  async listNoteResources(noteId: string, options: { limit?: number } = {}): Promise<Resource[]> {
+    return this.listAll<Resource>(
+      `/notes/${noteId}/resources`,
+      { fields: 'id,title,mime,file_extension,size' },
+      options.limit,
+    );
   }
 
   async listRevisions(noteId: string): Promise<Revision[]> {

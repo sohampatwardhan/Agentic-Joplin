@@ -97,6 +97,20 @@ describe('registerNoteTools', () => {
     expect(payload.format).toBe('html');
   });
 
+  it('get_note forwards a custom fields param to JoplinClient.getNote', async () => {
+    const client = {
+      getNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi', markup_language: 1 }),
+    };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    const result = await server.tools.get('get_note')!.handler({ note_id: 'n1', fields: 'id,title' });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(client.getNote).toHaveBeenCalledWith('n1', 'id,title');
+    expect(payload.format).toBe('markdown');
+  });
+
   it('update_note sends body_html when format is html and body is set', async () => {
     const client = { updateNote: vi.fn().mockResolvedValue({ id: 'n1', parent_id: 'nb1', title: 'Hi' }) };
     const server = createFakeServer();
@@ -130,6 +144,31 @@ describe('registerNoteTools', () => {
     await server.tools.get('list_notes')!.handler({ notebook_id: 'nb1', limit: 5 });
 
     expect(client.listNotes).toHaveBeenCalledWith({ parentId: 'nb1', limit: 5 });
+  });
+
+  it('list_notes marks the result truncated when the cap is hit', async () => {
+    const capped = Array.from({ length: 200 }, (_, i) => ({ id: `n${i}`, parent_id: 'nb1', title: 'x' }));
+    const client = { listNotes: vi.fn().mockResolvedValue(capped) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    const result = await server.tools.get('list_notes')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.items).toHaveLength(200);
+    expect(payload.truncated).toBe(true);
+  });
+
+  it('list_notes marks the result not truncated when below the cap', async () => {
+    const client = { listNotes: vi.fn().mockResolvedValue([{ id: 'n1', parent_id: 'nb1', title: 'x' }]) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    const result = await server.tools.get('list_notes')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.items).toHaveLength(1);
+    expect(payload.truncated).toBe(false);
   });
 
   it('delete_note forwards the permanent flag', async () => {

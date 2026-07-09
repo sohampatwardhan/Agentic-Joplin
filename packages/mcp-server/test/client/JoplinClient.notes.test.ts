@@ -21,6 +21,35 @@ describe('JoplinClient notes', () => {
     expect(calledUrl.searchParams.get('fields')).toContain('markup_language');
   });
 
+  it('getNote overrides the default fields with a caller-provided list, always including markup_language', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'n1', parent_id: 'nb1', title: 'Hi' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.getNote('n1', 'id,title');
+
+    const calledUrl = new URL(fetchImpl.mock.calls[0][0]);
+    const fields = calledUrl.searchParams.get('fields');
+    expect(fields).toContain('id');
+    expect(fields).toContain('title');
+    expect(fields).toContain('markup_language');
+    expect(fields).not.toContain('body');
+  });
+
+  it('getNote does not duplicate markup_language when the caller already includes it', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'n1', parent_id: 'nb1', title: 'Hi' }), { status: 200 }));
+    const client = new JoplinClient(config, fetchImpl);
+
+    await client.getNote('n1', 'id,title,markup_language');
+
+    const calledUrl = new URL(fetchImpl.mock.calls[0][0]);
+    const fields = calledUrl.searchParams.get('fields')!;
+    expect(fields.split(',').filter((f) => f === 'markup_language')).toHaveLength(1);
+  });
+
   it('createNote posts the input as JSON', async () => {
     const fetchImpl = vi
       .fn()

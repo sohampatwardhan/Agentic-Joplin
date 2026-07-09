@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JoplinClient } from '../client/JoplinClient.js';
+import { MAX_AUTO_PAGINATE_ITEMS, type JoplinClient } from '../client/JoplinClient.js';
 import { toToolError } from './toolError.js';
 
 export function registerResourceTools(server: McpServer, client: JoplinClient): void {
@@ -107,12 +107,14 @@ export function registerResourceTools(server: McpServer, client: JoplinClient): 
       description: 'List resources attached to a note.',
       inputSchema: {
         note_id: z.string().describe('ID of the note'),
+        limit: z.number().int().positive().optional().describe('Maximum number of resources to return'),
       },
     },
-    async ({ note_id }) => {
+    async ({ note_id, limit }) => {
       try {
-        const resources = await client.listNoteResources(note_id);
-        return { content: [{ type: 'text' as const, text: JSON.stringify(resources) }] };
+        const resources = await client.listNoteResources(note_id, { limit });
+        const truncated = resources.length >= (limit ?? MAX_AUTO_PAGINATE_ITEMS);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ items: resources, truncated }) }] };
       } catch (error) {
         return toToolError(error);
       }

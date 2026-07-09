@@ -25,8 +25,36 @@ describe('registerNotebookTools', () => {
     const result = await server.tools.get('list_notebooks')!.handler({});
     const payload = JSON.parse(result.content[0].text);
 
-    expect(payload.flat).toHaveLength(2);
+    expect(payload.items).toHaveLength(2);
     expect(payload.tree[0].children[0].id).toBe('child');
+    expect(payload.truncated).toBe(false);
+  });
+
+  it('list_notebooks marks the result truncated when the cap is hit', async () => {
+    const capped = Array.from({ length: 200 }, (_, i) => ({ id: `nb${i}`, parent_id: '', title: 'x' }));
+    const client = { listNotebooks: vi.fn().mockResolvedValue(capped) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    const result = await server.tools.get('list_notebooks')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.items).toHaveLength(200);
+    expect(payload.truncated).toBe(true);
+  });
+
+  it('list_notebooks forwards an optional limit to JoplinClient.listNotebooks', async () => {
+    const client = {
+      listNotebooks: vi.fn().mockResolvedValue([{ id: 'nb1', parent_id: '', title: 'A' }]),
+    };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    const result = await server.tools.get('list_notebooks')!.handler({ limit: 1 });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(client.listNotebooks).toHaveBeenCalledWith({ limit: 1 });
+    expect(payload.truncated).toBe(true);
   });
 
   it('create_notebook forwards an optional parent_id for nesting', async () => {

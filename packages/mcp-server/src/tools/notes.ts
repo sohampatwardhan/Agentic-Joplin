@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JoplinClient } from '../client/JoplinClient.js';
+import { MAX_AUTO_PAGINATE_ITEMS, type JoplinClient } from '../client/JoplinClient.js';
 import { noteFormatFromMarkupLanguage } from '../schemas/note.js';
 import { toToolError } from './toolError.js';
 
@@ -35,11 +35,17 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
       description: 'Fetch a Joplin note by ID. The result includes a "format" field (markdown or html).',
       inputSchema: {
         note_id: z.string().describe('ID of the note to fetch'),
+        fields: z
+          .string()
+          .optional()
+          .describe(
+            'Comma-separated list of fields to return, overriding the default field list. "markup_language" is always included so "format" can be derived.',
+          ),
       },
     },
-    async ({ note_id }) => {
+    async ({ note_id, fields }) => {
       try {
-        const note = await client.getNote(note_id);
+        const note = await client.getNote(note_id, fields);
         const format = noteFormatFromMarkupLanguage(note.markup_language);
         return { content: [{ type: 'text' as const, text: JSON.stringify({ ...note, format }) }] };
       } catch (error) {
@@ -104,7 +110,8 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
     async ({ notebook_id, tag_id, limit }) => {
       try {
         const notes = await client.listNotes({ parentId: notebook_id, tagId: tag_id, limit });
-        return { content: [{ type: 'text' as const, text: JSON.stringify(notes) }] };
+        const truncated = notes.length >= (limit ?? MAX_AUTO_PAGINATE_ITEMS);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ items: notes, truncated }) }] };
       } catch (error) {
         return toToolError(error);
       }

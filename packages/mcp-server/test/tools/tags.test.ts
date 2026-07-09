@@ -49,9 +49,36 @@ describe('registerTagTools', () => {
     registerTagTools(server as any, client as any);
 
     const result = await server.tools.get('list_tags')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
 
     expect(client.listTags).toHaveBeenCalled();
-    expect(JSON.parse(result.content[0].text)).toEqual([{ id: 't1', title: 'urgent' }]);
+    expect(payload.items).toEqual([{ id: 't1', title: 'urgent' }]);
+    expect(payload.truncated).toBe(false);
+  });
+
+  it('list_tags marks the result truncated when the cap is hit', async () => {
+    const capped = Array.from({ length: 200 }, (_, i) => ({ id: `t${i}`, title: 'x' }));
+    const client = { listTags: vi.fn().mockResolvedValue(capped) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    const result = await server.tools.get('list_tags')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.items).toHaveLength(200);
+    expect(payload.truncated).toBe(true);
+  });
+
+  it('list_tags forwards an optional limit to JoplinClient.listTags', async () => {
+    const client = { listTags: vi.fn().mockResolvedValue([{ id: 't1', title: 'urgent' }]) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    const result = await server.tools.get('list_tags')!.handler({ limit: 1 });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(client.listTags).toHaveBeenCalledWith({ limit: 1 });
+    expect(payload.truncated).toBe(true);
   });
 
   it('get_tag calls JoplinClient.getTag with the given id', async () => {

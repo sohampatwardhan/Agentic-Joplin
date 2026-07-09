@@ -47,4 +47,19 @@ describe('JoplinClient resource update and delete', () => {
     expect(new URL(url).pathname).toBe('/resources/res1');
     expect(init.method).toBe('DELETE');
   });
+
+  it('listNoteResources stops paginating once the given limit is reached', async () => {
+    const page1 = new Response(
+      JSON.stringify({ items: [{ id: 'res1', title: 'a' }], has_more: true }),
+      { status: 200 },
+    );
+    const fetchImpl = vi.fn().mockResolvedValueOnce(page1);
+    const client = new JoplinClient(config, fetchImpl);
+
+    const resources = await client.listNoteResources('note1', { limit: 1 });
+
+    expect(resources).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe('/notes/note1/resources');
+  });
 });

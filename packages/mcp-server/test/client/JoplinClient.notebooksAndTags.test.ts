@@ -79,4 +79,32 @@ describe('JoplinClient notebooks and tags', () => {
 
     expect(tags).toEqual([{ id: 'tag1', title: 'urgent' }]);
   });
+
+  it('listNotebooks stops paginating once the given limit is reached', async () => {
+    const page1 = new Response(
+      JSON.stringify({ items: [{ id: 'nb1', parent_id: '', title: 'A' }], has_more: true }),
+      { status: 200 },
+    );
+    const fetchImpl = vi.fn().mockResolvedValueOnce(page1);
+    const client = new JoplinClient(config, fetchImpl);
+
+    const notebooks = await client.listNotebooks({ limit: 1 });
+
+    expect(notebooks).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('listTags stops paginating once the given limit is reached', async () => {
+    const page1 = new Response(
+      JSON.stringify({ items: [{ id: 'tag1', title: 'a' }], has_more: true }),
+      { status: 200 },
+    );
+    const fetchImpl = vi.fn().mockResolvedValueOnce(page1);
+    const client = new JoplinClient(config, fetchImpl);
+
+    const tags = await client.listTags({ limit: 1 });
+
+    expect(tags).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });

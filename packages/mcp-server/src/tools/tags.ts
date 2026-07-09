@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JoplinClient } from '../client/JoplinClient.js';
+import { MAX_AUTO_PAGINATE_ITEMS, type JoplinClient } from '../client/JoplinClient.js';
 import { toToolError } from './toolError.js';
 
 export function registerTagTools(server: McpServer, client: JoplinClient): void {
@@ -26,12 +26,15 @@ export function registerTagTools(server: McpServer, client: JoplinClient): void 
     'list_tags',
     {
       description: 'List all Joplin tags.',
-      inputSchema: {},
+      inputSchema: {
+        limit: z.number().int().positive().optional().describe('Maximum number of tags to return'),
+      },
     },
-    async () => {
+    async ({ limit }) => {
       try {
-        const tags = await client.listTags();
-        return { content: [{ type: 'text' as const, text: JSON.stringify(tags) }] };
+        const tags = await client.listTags({ limit });
+        const truncated = tags.length >= (limit ?? MAX_AUTO_PAGINATE_ITEMS);
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ items: tags, truncated }) }] };
       } catch (error) {
         return toToolError(error);
       }
