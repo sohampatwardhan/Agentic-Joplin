@@ -23,9 +23,6 @@ const KNOWN_TOOLS = new Set([
 const KNOWN_FIELDS = new Set([
   'parent_id', 'notebook_id', 'tag_id', 'note_id', 'resource_id',
   'file_base64', 'markup_language', 'user_config', 'mcp_servers', 'env_vars',
-  // Namespaced-tool illustration in using-joplin (e.g. "your client may expose them
-  // namespaced") — not a bare tool name and not a typo, so it's not covered by KNOWN_TOOLS.
-  'mcp__joplin__create_note',
 ]);
 
 const skillNames = readdirSync(skillsDir, { withFileTypes: true })
@@ -60,7 +57,9 @@ describe('skills', () => {
         const referenced = [...body.matchAll(/`([a-z][a-z_]+)`/g)].map((m) => m[1]);
         // a token is "tool-like" if it ends in a known verb/noun shape; check membership only
         // for tokens that appear in KNOWN_TOOLS' vocabulary space (contains an underscore).
-        const toolLike = referenced.filter((t) => t.includes('_'));
+        // Single-underscore tokens are candidate tool/field names; MCP-namespaced examples
+        // (e.g. `mcp__joplin__create_note`) contain a double underscore and are not bare tools.
+        const toolLike = referenced.filter((t) => t.includes('_') && !t.includes('__'));
         const unknown = toolLike.filter((t) => !KNOWN_TOOLS.has(t) && !KNOWN_FIELDS.has(t));
         expect(unknown, `unknown tool-like tokens in ${skill}: ${unknown.join(', ')}`).toEqual([]);
       });

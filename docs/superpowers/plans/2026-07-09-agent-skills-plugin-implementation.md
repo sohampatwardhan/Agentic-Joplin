@@ -464,9 +464,9 @@ describe('skills', () => {
         const body = readFileSync(file, 'utf8');
         // backticked lower_snake_case tokens that look like tool calls
         const referenced = [...body.matchAll(/`([a-z][a-z_]+)`/g)].map((m) => m[1]);
-        // a token is "tool-like" if it ends in a known verb/noun shape; check membership only
-        // for tokens that appear in KNOWN_TOOLS' vocabulary space (contains an underscore).
-        const toolLike = referenced.filter((t) => t.includes('_'));
+        // Single-underscore tokens are candidate tool/field names; MCP-namespaced examples
+        // (e.g. `mcp__joplin__create_note`) contain a double underscore and are not bare tools.
+        const toolLike = referenced.filter((t) => t.includes('_') && !t.includes('__'));
         const unknown = toolLike.filter((t) => !KNOWN_TOOLS.has(t) && !KNOWN_FIELDS.has(t));
         expect(unknown, `unknown tool-like tokens in ${skill}: ${unknown.join(', ')}`).toEqual([]);
       });
