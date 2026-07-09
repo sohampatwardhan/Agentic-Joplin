@@ -681,6 +681,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -706,7 +709,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -734,7 +741,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -742,7 +749,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -947,6 +954,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -972,7 +982,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -1000,7 +1014,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1008,7 +1022,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1209,7 +1223,8 @@ import type { Resource } from '../schemas/resource.js';
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
@@ -1269,6 +1284,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -1294,7 +1312,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -1322,7 +1344,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1330,7 +1352,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -1400,7 +1422,8 @@ export class JoplinClient {
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
@@ -1432,7 +1455,7 @@ export class JoplinClient {
 }
 ```
 
-This is the final, complete `JoplinClient.ts`, matching the design spec's full method list (`getNote`, `createNote`, `updateNote`, `deleteNote`, `listNotes`, `listNotebooks`, `createNotebook`, `listTags`, `createTag`, `attachTag`, `detachTag`, `search`, `createResource`, `attachResourceToNote`, `getResource`, `getResourceFile`, `listNoteResources`).
+This covers notes, notebook creation/listing, tag creation/listing, search, and resource upload/read. The remaining full-CRUD methods for notebooks and tags (`getNotebook`, `updateNotebook`, `deleteNotebook`, `getTag`, `updateTag`, `deleteTag`), resource update/delete (`updateResource`, `deleteResource`), revisions (`listRevisions`, `deleteNoteRevisions`), and `ping` are added in Tasks 16–19; Task 19 shows the complete final file.
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -1576,7 +1599,12 @@ describe('registerNoteTools', () => {
       notebook_id: 'nb1',
     });
 
-    expect(client.createNote).toHaveBeenCalledWith({ title: 'Rich', parent_id: 'nb1', body_html: '<p>Hi</p>' });
+    expect(client.createNote).toHaveBeenCalledWith({
+      title: 'Rich',
+      parent_id: 'nb1',
+      body_html: '<p>Hi</p>',
+      markup_language: 2,
+    });
   });
 
   it('get_note maps a JoplinApiError into an isError tool result', async () => {
@@ -1615,6 +1643,7 @@ describe('registerNoteTools', () => {
       title: undefined,
       parent_id: undefined,
       body_html: '<p>Updated</p>',
+      markup_language: 2,
     });
   });
 
@@ -1670,7 +1699,7 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
       try {
         const note =
           format === 'html'
-            ? await client.createNote({ title, parent_id: notebook_id, body_html: body })
+            ? await client.createNote({ title, parent_id: notebook_id, body_html: body, markup_language: 2 })
             : await client.createNote({ title, parent_id: notebook_id, body });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
@@ -1712,7 +1741,8 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
     },
     async ({ note_id, title, body, format, notebook_id }) => {
       try {
-        const bodyFields = body === undefined ? {} : format === 'html' ? { body_html: body } : { body };
+        const bodyFields =
+          body === undefined ? {} : format === 'html' ? { body_html: body, markup_language: 2 } : { body };
         const note = await client.updateNote(note_id, { title, parent_id: notebook_id, ...bodyFields });
         return { content: [{ type: 'text' as const, text: JSON.stringify(note) }] };
       } catch (error) {
@@ -2096,6 +2126,16 @@ describe('registerSearchTools', () => {
     expect(JSON.parse(result.content[0].text)).toHaveLength(1);
   });
 
+  it("find_notes maps the agent-facing type 'notebook' to Joplin's 'folder' value", async () => {
+    const client = { search: vi.fn().mockResolvedValue([]) };
+    const server = createFakeServer();
+    registerSearchTools(server as any, client as any);
+
+    await server.tools.get('find_notes')!.handler({ query: 'recipes', type: 'notebook' });
+
+    expect(client.search).toHaveBeenCalledWith('recipes', { type: 'folder', limit: undefined });
+  });
+
   it('find_notes rejects an input missing the required query field', async () => {
     const { z } = await import('zod');
     const server = createFakeServer();
@@ -2129,13 +2169,17 @@ export function registerSearchTools(server: McpServer, client: JoplinClient): vo
       description: 'Full-text search for notes, optionally filtered by item type.',
       inputSchema: {
         query: z.string().describe('Search query; supports the * wildcard'),
-        type: z.enum(['note', 'notebook', 'tag']).optional().describe('Restrict results to this item type'),
+        type: z
+          .enum(['note', 'notebook', 'tag'])
+          .optional()
+          .describe("Restrict results to this item type ('notebook' is mapped to Joplin's 'folder' value)"),
         limit: z.number().int().positive().optional().describe('Maximum number of results to return'),
       },
     },
     async ({ query, type, limit }) => {
       try {
-        const results = await client.search(query, { type, limit });
+        const joplinType = type === 'notebook' ? 'folder' : type;
+        const results = await client.search(query, { type: joplinType, limit });
         return { content: [{ type: 'text' as const, text: JSON.stringify(results) }] };
       } catch (error) {
         return toToolError(error);
@@ -2148,7 +2192,7 @@ export function registerSearchTools(server: McpServer, client: JoplinClient): vo
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test --workspace @agentic-joplin/mcp-server`
-Expected: PASS (2 tests)
+Expected: PASS (3 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -2274,7 +2318,8 @@ export function registerResourceTools(server: McpServer, client: JoplinClient): 
   server.registerTool(
     'attach_resource',
     {
-      description: 'Upload a file and attach it to a note as a resource.',
+      description:
+        'Upload a file and attach it to a note as a resource. Note: this reads the note body and writes back an appended link as two separate requests, so a concurrent edit to the same note (in the Joplin UI, via sync, or another tool call) between the read and write can be overwritten.',
       inputSchema: {
         note_id: z.string().describe('ID of the note to attach the file to'),
         filename: z.string().describe('File name, including extension'),
@@ -2528,6 +2573,15 @@ describe('JoplinClient permanent delete and tag-scoped listing', () => {
     expect(url.searchParams.has('permanent')).toBe(false);
   });
 
+  it('rejects an id containing path traversal before issuing any request', async () => {
+    const fetchImpl = vi.fn();
+    const client = new JoplinClient(config, fetchImpl);
+
+    // A traversal id like '../folders/nb1' would otherwise normalize to DELETE /folders/nb1.
+    await expect(client.deleteNote('../folders/nb1')).rejects.toThrow(/unexpected characters/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it('listNotes scoped to a tag requests /tags/:id/notes', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([{ id: 'n1', parent_id: 'nb1', title: 'A' }]), { status: 200 }),
@@ -2604,6 +2658,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -2629,7 +2686,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -2657,7 +2718,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2665,7 +2726,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -2739,7 +2800,8 @@ export class JoplinClient {
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
@@ -2774,7 +2836,7 @@ export class JoplinClient {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test --workspace @agentic-joplin/mcp-server`
-Expected: PASS (all tests, including the 4 new ones in this file)
+Expected: PASS (all tests, including the 5 new ones in this file)
 
 - [ ] **Step 5: Commit**
 
@@ -2960,6 +3022,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -2985,7 +3050,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -3011,7 +3080,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3019,7 +3088,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -3125,7 +3194,8 @@ export class JoplinClient {
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
@@ -3551,6 +3621,9 @@ export class JoplinClient {
   ) {}
 
   private buildUrl(path: string, params: QueryParams = {}): string {
+    if (/\.\./.test(path) || /[?#%]/.test(path)) {
+      throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
+    }
     const url = new URL(`http://${this.config.host}:${this.config.port}${path}`);
     url.searchParams.set('token', this.config.token);
     for (const [key, value] of Object.entries(params)) {
@@ -3576,7 +3649,11 @@ export class JoplinClient {
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+    return JSON.parse(text) as T;
   }
 
   private async listAll<T>(path: string, params: QueryParams = {}, limit?: number): Promise<T[]> {
@@ -3602,7 +3679,7 @@ export class JoplinClient {
     });
   }
 
-  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string }): Promise<Note> {
+  async createNote(input: { title: string; parent_id: string; body?: string; body_html?: string; markup_language?: number }): Promise<Note> {
     return this.request<Note>('/notes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3610,7 +3687,7 @@ export class JoplinClient {
     });
   }
 
-  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string }>): Promise<Note> {
+  async updateNote(id: string, input: Partial<{ title: string; body: string; body_html: string; parent_id: string; markup_language: number }>): Promise<Note> {
     return this.request<Note>(`/notes/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -3716,7 +3793,8 @@ export class JoplinClient {
 
   async attachResourceToNote(noteId: string, resourceId: string, resourceTitle: string): Promise<Note> {
     const note = await this.getNote(noteId);
-    const link = `\n\n[${resourceTitle}](:/${resourceId})`;
+    const safeTitle = resourceTitle.replace(/[[\]]/g, '\\$&');
+    const link = `\n\n[${safeTitle}](:/${resourceId})`;
     return this.updateNote(noteId, { body: (note.body ?? '') + link });
   }
 
@@ -4317,7 +4395,8 @@ export function registerResourceTools(server: McpServer, client: JoplinClient): 
   server.registerTool(
     'attach_resource',
     {
-      description: 'Upload a file and attach it to a note as a resource.',
+      description:
+        'Upload a file and attach it to a note as a resource. Note: this reads the note body and writes back an appended link as two separate requests, so a concurrent edit to the same note (in the Joplin UI, via sync, or another tool call) between the read and write can be overwritten.',
       inputSchema: {
         note_id: z.string().describe('ID of the note to attach the file to'),
         filename: z.string().describe('File name, including extension'),
@@ -4753,4 +4832,42 @@ Append these items to the checklist (after the existing `delete_note` item and b
 ```bash
 git add packages/mcp-server/src/index.ts packages/mcp-server/README.md packages/mcp-server/SMOKE_TEST.md
 git commit -m "feat: wire revision and ping tools into the server entrypoint; update docs"
+```
+
+---
+
+## Task 24: Post-review enhancements (spec-completeness + safety)
+
+These items came out of the plan-hardening review. The P0/P1 correctness and security fixes (HTML `markup_language`, search `folder` mapping, path-traversal guard, empty-body handling, resource-title escaping, attach-race documentation) were already folded directly into Tasks 4–23 above. The items below are additive enhancements — each expands the tool surface with matching tests. Implement them TDD-style like every other task: write the failing test, run it red, implement, run it green, commit.
+
+- [ ] **Step 1: `list_*` truncation signal (P1).** `JoplinClient.listAll` silently caps results (200 default, 500 for the revision scan) with no signal. Export the cap constant (`export const MAX_AUTO_PAGINATE_ITEMS = 200;`) from `JoplinClient.ts`, then change every list-type tool (`list_notes`, `list_notebooks`, `list_tags`, `find_notes`, `list_note_resources`) so its output is `{ items, truncated }` where `truncated = items.length >= (limit ?? MAX_AUTO_PAGINATE_ITEMS)`. Update each affected tool test to read `JSON.parse(...).items` and add one asserting `truncated: true` when the returned array length equals the cap. Leave `list_note_revisions` returning a bare array (its length reflects the client-side note filter, not the scan cap — the scan-window limitation is already documented in its description).
+
+  **Test to add (representative — `list_notes` in `test/tools/notes.test.ts`):**
+
+```typescript
+  it('list_notes marks the result truncated when the cap is hit', async () => {
+    const capped = Array.from({ length: 200 }, (_, i) => ({ id: `n${i}`, parent_id: 'nb1', title: 'x' }));
+    const client = { listNotes: vi.fn().mockResolvedValue(capped) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    const result = await server.tools.get('list_notes')!.handler({});
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.items).toHaveLength(200);
+    expect(payload.truncated).toBe(true);
+  });
+```
+
+- [ ] **Step 2: `get_note` field selection (P2, spec line 86).** Add an optional `fields` param (comma-separated string) to the `get_note` tool and thread it to `JoplinClient.getNote(id, fields?)`, which overrides the default field list — but always append `markup_language` if the caller omits it, so the derived `format` field still works. Update `getNote`'s signature everywhere it appears and add a test asserting a custom `fields` value reaches the request's `fields` query param and still includes `markup_language`.
+
+- [ ] **Step 3: `find_notes` notebook/tag scoping (P2, spec line 101).** Add optional `notebook_id` and `tag_id` params to `find_notes` that fold into Joplin's search query syntax (`notebook:"<title>"` / `tag:"<title>"` filters appended to `query`). Note this requires resolving the id to a title first (Joplin's search filters match on notebook/tag title, not id) — or, simpler and id-native, scope by calling `listNotes({ parentId })` / `listNotes({ tagId })` and intersecting with the search results client-side. Pick the id-native approach to avoid a title round-trip; add a test for each scoping path.
+
+- [ ] **Step 4: `limit` param on the remaining list tools (P2, spec line 79).** The spec says every list tool "can accept an optional limit." Add optional `limit` to `list_notebooks`, `list_tags`, and `list_note_resources` tools, threading to the already-`limit`-capable `listNotebooks`/`listTags`/`listNoteResources` client methods (add the `limit?` param + `listAll` passthrough to those three client methods). Add a test per tool asserting the limit reaches `listAll`'s cap argument.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/mcp-server/src packages/mcp-server/test
+git commit -m "feat: list truncation signal, get_note fields, find_notes scoping, list limits"
 ```
