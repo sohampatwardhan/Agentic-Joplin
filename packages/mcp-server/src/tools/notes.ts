@@ -78,11 +78,12 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
       description: 'Delete a Joplin note by ID.',
       inputSchema: {
         note_id: z.string().describe('ID of the note to delete'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
       },
     },
-    async ({ note_id }) => {
+    async ({ note_id, permanent }) => {
       try {
-        await client.deleteNote(note_id);
+        await client.deleteNote(note_id, { permanent });
         return { content: [{ type: 'text' as const, text: `Deleted note ${note_id}` }] };
       } catch (error) {
         return toToolError(error);
@@ -93,15 +94,16 @@ export function registerNoteTools(server: McpServer, client: JoplinClient): void
   server.registerTool(
     'list_notes',
     {
-      description: 'List Joplin notes, optionally scoped to a notebook.',
+      description: 'List Joplin notes, optionally scoped to a notebook or tag.',
       inputSchema: {
         notebook_id: z.string().optional().describe('Only list notes in this notebook ID'),
+        tag_id: z.string().optional().describe('Only list notes with this tag ID (takes priority over notebook_id)'),
         limit: z.number().int().positive().optional().describe('Maximum number of notes to return'),
       },
     },
-    async ({ notebook_id, limit }) => {
+    async ({ notebook_id, tag_id, limit }) => {
       try {
-        const notes = await client.listNotes({ parentId: notebook_id, limit });
+        const notes = await client.listNotes({ parentId: notebook_id, tagId: tag_id, limit });
         return { content: [{ type: 'text' as const, text: JSON.stringify(notes) }] };
       } catch (error) {
         return toToolError(error);

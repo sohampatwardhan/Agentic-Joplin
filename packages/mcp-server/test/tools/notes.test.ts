@@ -131,4 +131,24 @@ describe('registerNoteTools', () => {
 
     expect(client.listNotes).toHaveBeenCalledWith({ parentId: 'nb1', limit: 5 });
   });
+
+  it('delete_note forwards the permanent flag', async () => {
+    const client = { deleteNote: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('delete_note')!.handler({ note_id: 'n1', permanent: true });
+
+    expect(client.deleteNote).toHaveBeenCalledWith('n1', { permanent: true });
+  });
+
+  it('list_notes forwards tag_id to JoplinClient.listNotes', async () => {
+    const client = { listNotes: vi.fn().mockResolvedValue([]) };
+    const server = createFakeServer();
+    registerNoteTools(server as any, client as any);
+
+    await server.tools.get('list_notes')!.handler({ tag_id: 'tag1' });
+
+    expect(client.listNotes).toHaveBeenCalledWith({ parentId: undefined, tagId: 'tag1', limit: undefined });
+  });
 });

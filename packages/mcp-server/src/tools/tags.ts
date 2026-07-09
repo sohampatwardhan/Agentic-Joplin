@@ -5,6 +5,24 @@ import { toToolError } from './toolError.js';
 
 export function registerTagTools(server: McpServer, client: JoplinClient): void {
   server.registerTool(
+    'get_tag',
+    {
+      description: 'Fetch a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to fetch'),
+      },
+    },
+    async ({ tag_id }) => {
+      try {
+        const tag = await client.getTag(tag_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
     'list_tags',
     {
       description: 'List all Joplin tags.',
@@ -32,6 +50,43 @@ export function registerTagTools(server: McpServer, client: JoplinClient): void 
       try {
         const tag = await client.createTag({ title });
         return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_tag',
+    {
+      description: 'Rename a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to rename'),
+        title: z.string().describe('New tag title'),
+      },
+    },
+    async ({ tag_id, title }) => {
+      try {
+        const tag = await client.updateTag(tag_id, { title });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(tag) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_tag',
+    {
+      description: 'Delete a Joplin tag by ID.',
+      inputSchema: {
+        tag_id: z.string().describe('ID of the tag to delete'),
+      },
+    },
+    async ({ tag_id }) => {
+      try {
+        await client.deleteTag(tag_id);
+        return { content: [{ type: 'text' as const, text: `Deleted tag ${tag_id}` }] };
       } catch (error) {
         return toToolError(error);
       }

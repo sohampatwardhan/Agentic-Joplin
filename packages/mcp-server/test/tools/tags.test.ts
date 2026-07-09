@@ -53,4 +53,35 @@ describe('registerTagTools', () => {
     expect(client.listTags).toHaveBeenCalled();
     expect(JSON.parse(result.content[0].text)).toEqual([{ id: 't1', title: 'urgent' }]);
   });
+
+  it('get_tag calls JoplinClient.getTag with the given id', async () => {
+    const client = { getTag: vi.fn().mockResolvedValue({ id: 't1', title: 'urgent' }) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    const result = await server.tools.get('get_tag')!.handler({ tag_id: 't1' });
+
+    expect(client.getTag).toHaveBeenCalledWith('t1');
+    expect(JSON.parse(result.content[0].text).title).toBe('urgent');
+  });
+
+  it('update_tag renames a tag', async () => {
+    const client = { updateTag: vi.fn().mockResolvedValue({ id: 't1', title: 'renamed' }) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    await server.tools.get('update_tag')!.handler({ tag_id: 't1', title: 'renamed' });
+
+    expect(client.updateTag).toHaveBeenCalledWith('t1', { title: 'renamed' });
+  });
+
+  it('delete_tag calls JoplinClient.deleteTag with the given id', async () => {
+    const client = { deleteTag: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerTagTools(server as any, client as any);
+
+    await server.tools.get('delete_tag')!.handler({ tag_id: 't1' });
+
+    expect(client.deleteTag).toHaveBeenCalledWith('t1');
+  });
 });

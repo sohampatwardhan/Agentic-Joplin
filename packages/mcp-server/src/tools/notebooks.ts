@@ -6,6 +6,24 @@ import { toToolError } from './toolError.js';
 
 export function registerNotebookTools(server: McpServer, client: JoplinClient): void {
   server.registerTool(
+    'get_notebook',
+    {
+      description: 'Fetch a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to fetch'),
+      },
+    },
+    async ({ notebook_id }) => {
+      try {
+        const notebook = await client.getNotebook(notebook_id);
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
     'list_notebooks',
     {
       description: 'List Joplin notebooks as both a flat list and a nested tree (notebooks can be nested).',
@@ -35,6 +53,45 @@ export function registerNotebookTools(server: McpServer, client: JoplinClient): 
       try {
         const notebook = await client.createNotebook({ title, parent_id });
         return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'update_notebook',
+    {
+      description: 'Rename and/or move a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to update'),
+        title: z.string().optional().describe('New title'),
+        parent_id: z.string().optional().describe('New parent notebook ID, to move this notebook'),
+      },
+    },
+    async ({ notebook_id, title, parent_id }) => {
+      try {
+        const notebook = await client.updateNotebook(notebook_id, { title, parent_id });
+        return { content: [{ type: 'text' as const, text: JSON.stringify(notebook) }] };
+      } catch (error) {
+        return toToolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'delete_notebook',
+    {
+      description: 'Delete a Joplin notebook by ID.',
+      inputSchema: {
+        notebook_id: z.string().describe('ID of the notebook to delete'),
+        permanent: z.boolean().optional().describe('Permanently delete instead of moving to trash'),
+      },
+    },
+    async ({ notebook_id, permanent }) => {
+      try {
+        await client.deleteNotebook(notebook_id, { permanent });
+        return { content: [{ type: 'text' as const, text: `Deleted notebook ${notebook_id}` }] };
       } catch (error) {
         return toToolError(error);
       }

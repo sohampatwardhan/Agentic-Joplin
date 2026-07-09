@@ -38,4 +38,35 @@ describe('registerNotebookTools', () => {
 
     expect(client.createNotebook).toHaveBeenCalledWith({ title: 'Sub', parent_id: 'nb1' });
   });
+
+  it('get_notebook calls JoplinClient.getNotebook with the given id', async () => {
+    const client = { getNotebook: vi.fn().mockResolvedValue({ id: 'nb1', parent_id: '', title: 'Work' }) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    const result = await server.tools.get('get_notebook')!.handler({ notebook_id: 'nb1' });
+
+    expect(client.getNotebook).toHaveBeenCalledWith('nb1');
+    expect(JSON.parse(result.content[0].text).title).toBe('Work');
+  });
+
+  it('update_notebook forwards title and parent_id', async () => {
+    const client = { updateNotebook: vi.fn().mockResolvedValue({ id: 'nb1', parent_id: 'nb2', title: 'Renamed' }) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    await server.tools.get('update_notebook')!.handler({ notebook_id: 'nb1', title: 'Renamed', parent_id: 'nb2' });
+
+    expect(client.updateNotebook).toHaveBeenCalledWith('nb1', { title: 'Renamed', parent_id: 'nb2' });
+  });
+
+  it('delete_notebook forwards the permanent flag', async () => {
+    const client = { deleteNotebook: vi.fn().mockResolvedValue(undefined) };
+    const server = createFakeServer();
+    registerNotebookTools(server as any, client as any);
+
+    await server.tools.get('delete_notebook')!.handler({ notebook_id: 'nb1', permanent: true });
+
+    expect(client.deleteNotebook).toHaveBeenCalledWith('nb1', { permanent: true });
+  });
 });
