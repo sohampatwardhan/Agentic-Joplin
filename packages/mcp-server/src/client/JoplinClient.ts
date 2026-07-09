@@ -209,6 +209,29 @@ export class JoplinClient {
     });
   }
 
+  async updateResource(
+    id: string,
+    input: { title?: string; data?: Buffer; filename?: string; mime?: string },
+  ): Promise<Resource> {
+    if (input.data) {
+      const form = new FormData();
+      if (input.title !== undefined) {
+        form.set('props', JSON.stringify({ title: input.title }));
+      }
+      form.set('data', new Blob([input.data] as BlobPart[], { type: input.mime ?? 'application/octet-stream' }), input.filename ?? 'file');
+      return this.request<Resource>(`/resources/${id}`, { method: 'PUT', body: form });
+    }
+    return this.request<Resource>(`/resources/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: input.title }),
+    });
+  }
+
+  async deleteResource(id: string): Promise<void> {
+    await this.request<void>(`/resources/${id}`, { method: 'DELETE' });
+  }
+
   async getResourceFile(id: string): Promise<Buffer> {
     const url = this.buildUrl(`/resources/${id}/file`);
     let response: Response;
