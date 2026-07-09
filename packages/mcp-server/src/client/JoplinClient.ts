@@ -2,6 +2,7 @@ import { JoplinApiError, JoplinConnectionError } from './errors.js';
 import type { JoplinConfig } from '../config.js';
 import type { Note } from '../schemas/note.js';
 import type { Notebook } from '../schemas/notebook.js';
+import type { Tag } from '../schemas/tag.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -109,5 +110,37 @@ export class JoplinClient {
 
   async listNotebooks(): Promise<Notebook[]> {
     return this.listAll<Notebook>('/folders', { fields: 'id,parent_id,title' });
+  }
+
+  async createNotebook(input: { title: string; parent_id?: string }): Promise<Notebook> {
+    return this.request<Notebook>('/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async listTags(): Promise<Tag[]> {
+    return this.listAll<Tag>('/tags', { fields: 'id,title' });
+  }
+
+  async createTag(input: { title: string }): Promise<Tag> {
+    return this.request<Tag>('/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  }
+
+  async attachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: noteId }),
+    });
+  }
+
+  async detachTag(noteId: string, tagId: string): Promise<void> {
+    await this.request<void>(`/tags/${tagId}/notes/${noteId}`, { method: 'DELETE' });
   }
 }
