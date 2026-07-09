@@ -60,7 +60,7 @@ Three layers, chosen over a thin direct-mapping approach (tangles HTTP logic int
 
 Transport: stdio (standard for local MCP servers run by Claude Code/Desktop/other MCP clients) — no HTTP server of our own to manage.
 
-Runtime: TypeScript / Node.js, using the current `@modelcontextprotocol/server` package (`McpServer`, `StdioServerTransport` from `@modelcontextprotocol/server/stdio`) — the split successor to the older monolithic `@modelcontextprotocol/sdk` package. Tool input schemas use `zod/v4` per current SDK examples.
+Runtime: TypeScript / Node.js, using `@modelcontextprotocol/sdk` (latest stable: 1.29.0) — `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js`, `StdioServerTransport` from `@modelcontextprotocol/sdk/server/stdio.js`. The split `@modelcontextprotocol/server` package only exists as an unreleased 2.0 alpha/beta with no stable version, so Phase 1 targets the stable 1.x SDK instead. Tool schemas use the standard `zod` package (peer dependency, v3.25+) as a raw shape object passed to `registerTool`'s `inputSchema`, not a `z.object(...)`-wrapped schema. Tool errors are signaled via `{ content: [...], isError: true }`, not thrown exceptions.
 
 ## `JoplinClient` methods
 
