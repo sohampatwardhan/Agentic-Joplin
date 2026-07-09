@@ -4882,3 +4882,25 @@ These items came out of the plan-hardening review. The P0/P1 correctness and sec
 git add packages/mcp-server/src packages/mcp-server/test
 git commit -m "feat: list truncation signal, get_note fields, find_notes scoping, list limits"
 ```
+
+---
+
+## Post-implementation notes
+
+All 24 tasks were implemented via subagent-driven TDD. A few facts surfaced during
+implementation that deviate from the literal task text above; the committed code and
+tests are the source of truth where they differ from the inline full-file dumps:
+
+- **Task 6 — 404 test:** the plan's original test reused one mocked `Response` across two
+  `await expect` calls; a `Response` body can only be read once (Fetch spec), so it was
+  changed to a single `getNote` call asserting both the error class and `status: 404`.
+- **Task 1 — tsconfig:** `"types": ["node"]` was required for the `Buffer` global under
+  TypeScript 7 + `@types/node` 26 (surfaced first in Task 8). Added to `tsconfig.json`.
+- **Task 8/18 — Blob cast:** `new Blob([input.data] as BlobPart[], …)` needs a compile-time
+  `as BlobPart[]` cast (Node `Buffer` vs DOM `BlobPart` under strict mode). Runtime-neutral.
+- **Post-review fix — `attach_resource` format-awareness:** `attachResourceToNote` now emits an
+  HTML `<a href=":/id">title</a>` (HTML-escaped title) for HTML notes (`markup_language === 2`)
+  and the Markdown `[title](:/id)` link otherwise, so attachments render correctly in both
+  note formats. Commit `a21bf59`.
+
+Final state: 121 unit tests passing, `tsc` clean, 26 MCP tools across 7 groups over stdio.
