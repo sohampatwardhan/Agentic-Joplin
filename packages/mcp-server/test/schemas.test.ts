@@ -3,6 +3,7 @@ import { NoteSchema, noteFormatFromMarkupLanguage } from '../src/schemas/note.js
 import { NotebookSchema } from '../src/schemas/notebook.js';
 import { TagSchema } from '../src/schemas/tag.js';
 import { ResourceSchema } from '../src/schemas/resource.js';
+import { RevisionSchema } from '../src/schemas/revision.js';
 
 describe('entity schemas', () => {
   it('parses a valid note', () => {
@@ -55,5 +56,24 @@ describe('noteFormatFromMarkupLanguage', () => {
 
   it('defaults to markdown when markup_language is undefined', () => {
     expect(noteFormatFromMarkupLanguage(undefined)).toBe('markdown');
+  });
+});
+
+describe('RevisionSchema', () => {
+  it('parses a valid revision', () => {
+    const revision = RevisionSchema.parse({
+      id: 'rev-1',
+      item_type: 1,
+      item_id: 'note-1',
+      title_diff: '...',
+      body_diff: '...',
+      created_time: 1,
+      updated_time: 2,
+    });
+    expect(revision.item_id).toBe('note-1');
+  });
+
+  it('rejects a revision missing a required field', () => {
+    expect(() => RevisionSchema.parse({ id: 'rev-1' })).toThrow();
   });
 });

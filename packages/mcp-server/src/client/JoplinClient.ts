@@ -4,11 +4,14 @@ import type { Note } from '../schemas/note.js';
 import type { Notebook } from '../schemas/notebook.js';
 import type { Tag } from '../schemas/tag.js';
 import type { Resource } from '../schemas/resource.js';
+import type { Revision } from '../schemas/revision.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
 const MAX_AUTO_PAGINATE_ITEMS = 200;
 const PAGE_SIZE = 100;
+const REVISION_SCAN_LIMIT = 500;
+const NOTE_ITEM_TYPE = 1;
 
 interface ListResponse<T> {
   items: T[];
@@ -250,5 +253,37 @@ export class JoplinClient {
     return this.listAll<Resource>(`/notes/${noteId}/resources`, {
       fields: 'id,title,mime,file_extension,size',
     });
+  }
+
+  async listRevisions(noteId: string): Promise<Revision[]> {
+    const revisions = await this.listAll<Revision>(
+      '/revisions',
+      {
+        fields: 'id,item_type,item_id,title_diff,body_diff,created_time,updated_time',
+        order_by: 'created_time',
+        order_dir: 'DESC',
+      },
+      REVISION_SCAN_LIMIT,
+    );
+    return revisions.filter((revision) => revision.item_type === NOTE_ITEM_TYPE && revision.item_id === noteId);
+  }
+
+  async deleteNoteRevisions(noteId: string): Promise<void> {
+    await this.request<void>(`/notes/${noteId}/revisions`, { method: 'DELETE' });
+  }
+
+  async ping(): Promise<boolean> {
+    const url = this.buildUrl('/ping');
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url);
+    } catch {
+      throw new JoplinConnectionError();
+    }
+    if (!response.ok) {
+      throw new JoplinApiError(response.status, await response.text());
+    }
+    const text = await response.text();
+    return text === 'JoplinClipperServer';
   }
 }
