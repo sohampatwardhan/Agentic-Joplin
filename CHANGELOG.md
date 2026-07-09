@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project aims to follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`@agentic-joplin/plugin`** — cross-platform (Claude Code + Codex) plugin bundling the Joplin
+  MCP server with four agent skills: `using-joplin` (hub), `joplin-capturing-notes`,
+  `joplin-searching-and-updating`, and `joplin-organizing`. Shared `SKILL.md` files and MCP
+  config; per-platform manifests. Token via Claude Code `userConfig` or Codex `env_vars`.
+
 ## [0.1.0] - 2026-07-09
 
 Initial development release. First of the project's three planned pieces — the **MCP server** —

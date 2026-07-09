@@ -8,7 +8,7 @@ The project has three planned pieces:
 |---|---|
 | **MCP server** — wraps Joplin's Data API as Model Context Protocol tools | ✅ Phase 1 complete |
 | **Joplin plugin** — in-app plugin for capabilities the Data API can't expose | 🔜 planned |
-| **Agent skills** — skill files teaching agents how to use Joplin effectively | 🔜 planned |
+| **Agent skills** — skill files teaching agents how to use Joplin effectively | ✅ Claude Code + Codex plugin |
 
 This repo is an npm-workspaces monorepo; each piece lives under `packages/`.
 
@@ -43,6 +43,13 @@ Joplin must be running with Web Clipper enabled for any tool call to succeed.
 Notes (`create_note`, `get_note`, `update_note`, `delete_note`, `list_notes`), notebooks (`get_notebook`, `list_notebooks`, `create_notebook`, `update_notebook`, `delete_notebook`), tags (`get_tag`, `list_tags`, `create_tag`, `update_tag`, `delete_tag`, `tag_note`, `untag_note`), search (`find_notes`), resources (`attach_resource`, `get_resource`, `update_resource`, `delete_resource`, `list_note_resources`), revisions (`list_note_revisions`, `delete_note_revisions`), and `ping`.
 
 Notes can be created in Markdown (default) or HTML via a `format` parameter. See [`packages/mcp-server/README.md`](packages/mcp-server/README.md) for the full per-tool reference and [`packages/mcp-server/SMOKE_TEST.md`](packages/mcp-server/SMOKE_TEST.md) for the manual release checklist.
+
+## Agent skills plugin
+
+[`packages/plugin`](packages/plugin) is a single plugin — valid for both **Claude Code** and
+**Codex** — that bundles the Joplin MCP server with four agent skills (`using-joplin` hub plus
+`joplin-capturing-notes`, `joplin-searching-and-updating`, `joplin-organizing`). See
+[`packages/plugin/README.md`](packages/plugin/README.md) for install steps on each platform.
 
 ## Development
 
