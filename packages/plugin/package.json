@@ -2,6 +2,7 @@
   "name": "@agentic-joplin/plugin",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Agentic Joplin plugin for Claude Code and Codex — bundles the Joplin MCP server and agent skills.",
   "scripts": {
