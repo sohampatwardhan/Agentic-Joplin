@@ -3,10 +3,11 @@ import { loadConfig } from '../src/config.js';
 import * as tokenStore from '../src/tokenStore.js';
 
 describe('loadConfig', () => {
-  it('throws when JOPLIN_TOKEN is missing and no cached token exists', () => {
+  it('returns empty token when JOPLIN_TOKEN is missing and no cached token exists', () => {
     vi.spyOn(tokenStore, 'readCachedToken').mockReturnValue(undefined);
 
-    expect(() => loadConfig({})).toThrow(/JOPLIN_TOKEN/);
+    const config = loadConfig({});
+    expect(config.token).toBe('');
   });
 
   it('falls back to a cached token when JOPLIN_TOKEN is not set', () => {

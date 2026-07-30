@@ -5,6 +5,8 @@ import type { Notebook } from '../schemas/notebook.js';
 import type { Tag } from '../schemas/tag.js';
 import type { Resource } from '../schemas/resource.js';
 import type { Revision } from '../schemas/revision.js';
+import { authorize } from '../authorize.js';
+import { readCachedToken, writeCachedToken } from '../tokenStore.js';
 
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -30,6 +32,25 @@ export class JoplinClient {
     private readonly fetchImpl: FetchLike = fetch,
   ) {}
 
+  private async ensureToken(): Promise<string> {
+    if (this.config.token) {
+      return this.config.token;
+    }
+    const cached = readCachedToken();
+    if (cached) {
+      this.config.token = cached;
+      return cached;
+    }
+    const token = await authorize({
+      host: this.config.host,
+      port: this.config.port,
+      fetchImpl: this.fetchImpl as any,
+    });
+    writeCachedToken(token);
+    this.config.token = token;
+    return token;
+  }
+
   private buildUrl(path: string, params: QueryParams = {}): string {
     if (/\.\./.test(path) || /[?#%]/.test(path)) {
       throw new JoplinApiError(400, `Refusing to issue request for a path with unexpected characters: ${path}`);
@@ -45,6 +66,7 @@ export class JoplinClient {
   }
 
   private async request<T>(path: string, init: RequestInit = {}, params: QueryParams = {}): Promise<T> {
+    await this.ensureToken();
     const url = this.buildUrl(path, params);
     let response: Response;
     try {
@@ -246,6 +268,7 @@ export class JoplinClient {
   }
 
   async getResourceFile(id: string): Promise<Buffer> {
+    await this.ensureToken();
     const url = this.buildUrl(`/resources/${id}/file`);
     let response: Response;
     try {
@@ -285,7 +308,7 @@ export class JoplinClient {
   }
 
   async ping(): Promise<boolean> {
-    const url = this.buildUrl('/ping');
+    const url = `http://${this.config.host}:${this.config.port}/ping`;
     let response: Response;
     try {
       response = await this.fetchImpl(url);
