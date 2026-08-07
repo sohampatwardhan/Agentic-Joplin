@@ -38,3 +38,11 @@ provide the semantic layer:
 
 Use `list_notes` with `notebook_id` or `tag_id` to walk a set of notes (mind the `truncated`
 flag). Use `list_note_revisions` if the user wants a note's edit history.
+
+## Diagrams
+
+Joplin renders Mermaid inside fenced ` ```mermaid ` blocks in **Markdown** notes. When you
+add a diagram to a note, or edit/fix a diagram already in one, **use the `mermaid` skill** to
+author and validate the Mermaid before you `update_note` — an unvalidated block shows as a
+render error in Joplin. Keep the note's existing `format`; Mermaid only renders when it's
+`markdown`. When appending a diagram, follow the read-then-write appending guidance above.

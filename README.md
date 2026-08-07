@@ -62,4 +62,4 @@ Design docs live under [`docs/superpowers/`](docs/superpowers): the [design spec
 
 ## License
 
-TBD.
+[MIT](LICENSE) © Soham Patwardhan

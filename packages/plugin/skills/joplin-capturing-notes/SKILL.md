@@ -23,6 +23,17 @@ names to IDs, `truncated`, delete caution).
    with `tag_note` (note id + tag id).
 5. **Report** the created note's id and where it landed.
 
+## Diagrams
+
+Joplin renders Mermaid natively inside a fenced ` ```mermaid ` block in **Markdown**
+notes. Whenever the note includes or would benefit from a diagram (flowchart, sequence,
+architecture, gantt, ER, etc.), **use the `mermaid` skill** to author and validate it,
+then embed the fenced ` ```mermaid ` block in the note `body`. Requirements:
+
+- The note `format` must be `markdown` (step 2) — Mermaid does not render in `html` notes.
+- Never paste hand-written Mermaid you haven't validated; the `mermaid` skill renders it
+  first so the note doesn't display a syntax error to the user.
+
 ## Notes
 
 - Don't invent a notebook. If the user didn't name one and none is obvious, ask, or fall back

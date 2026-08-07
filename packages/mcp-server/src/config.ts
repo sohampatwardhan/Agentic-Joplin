@@ -7,13 +7,7 @@ export interface JoplinConfig {
 }
 
 export function loadConfig(env: Record<string, string | undefined>): JoplinConfig {
-  const token = env.JOPLIN_TOKEN || readCachedToken();
-  if (!token) {
-    throw new Error(
-      'JOPLIN_TOKEN environment variable is required. Generate one in Joplin under Options > Web Clipper > ' +
-        'Advanced options, or run `npx agentic-joplin-authorize` to fetch one automatically.',
-    );
-  }
+  const token = env.JOPLIN_TOKEN || readCachedToken() || '';
   return {
     token,
     host: env.JOPLIN_HOST ?? '127.0.0.1',
