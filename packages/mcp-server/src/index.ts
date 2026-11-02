@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from 'node:module';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { loadConfig } from './config.js';
@@ -11,11 +12,14 @@ import { registerResourceTools } from './tools/resources.js';
 import { registerRevisionTools } from './tools/revisions.js';
 import { registerSystemTools } from './tools/system.js';
 
+// Read the version from package.json (shipped in the npm tarball) so it never drifts from releases.
+const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
+
 async function main() {
   const config = loadConfig(process.env);
   const client = new JoplinClient(config);
 
-  const server = new McpServer({ name: 'agentic-joplin-mcp-server', version: '0.1.0' });
+  const server = new McpServer({ name: 'agentic-joplin-mcp-server', version });
 
   registerNoteTools(server, client);
   registerNotebookTools(server, client);

@@ -7,7 +7,7 @@ Requires:
 - Web Clipper service enabled (Options > Web Clipper) with an API token generated
 - `JOPLIN_TOKEN` (and `JOPLIN_HOST` / `JOPLIN_PORT` if non-default) exported in your shell
 
-Build first: `npm run build --workspace @agentic-joplin/mcp-server`
+Build first: `npm run build --workspace agentic-joplin`
 
 Then connect an MCP client (e.g. Claude Code) to `node packages/mcp-server/dist/index.js` with the env vars above, and run through:
 

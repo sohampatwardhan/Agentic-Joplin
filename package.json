@@ -1,5 +1,5 @@
 {
-  "name": "agentic-joplin",
+  "name": "agentic-joplin-monorepo",
   "private": true,
   "license": "MIT",
   "workspaces": [

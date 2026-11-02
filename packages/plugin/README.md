@@ -5,7 +5,7 @@ and Codex.
 
 ## Prerequisites
 
-- Node.js ≥ 20, and this monorepo built: `npm install && npm run build --workspace @agentic-joplin/mcp-server`
+- Node.js ≥ 20, and this monorepo built: `npm install && npm run build --workspace agentic-joplin`
 - Joplin desktop running with the Web Clipper service enabled (Options → Web Clipper).
 
 The bundled `.mcp.json` / `plugin.json` launch the server from `../mcp-server/dist/index.js`
@@ -13,7 +13,7 @@ relative to the plugin (`${CLAUDE_PLUGIN_ROOT}`), so build the server before use
 
 ### Getting a token without copy-pasting
 
-Run `npm run authorize --workspace @agentic-joplin/mcp-server` once. It requests access from
+Run `npm run authorize --workspace agentic-joplin` once. It requests access from
 Joplin; click **Accept** on the dialog that appears in the app, and the token is fetched and
 cached to `~/.agentic-joplin/token.json` — the server picks it up automatically, so you can skip
 entering a token below entirely. Otherwise, get one manually from Joplin's
