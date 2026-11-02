@@ -1,6 +1,9 @@
 ---
 name: using-joplin
 description: Use when working with Joplin notes, notebooks, or tags via the Joplin MCP tools — start here to check the connection, learn the available tools, avoid common pitfalls, and route to the capture, search-and-update, or organize workflows.
+metadata:
+  author: sohampatwardhan
+  version: "1.0.0"
 ---
 
 # Using Joplin

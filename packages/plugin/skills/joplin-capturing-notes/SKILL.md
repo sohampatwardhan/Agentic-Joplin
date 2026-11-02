@@ -1,6 +1,9 @@
 ---
 name: joplin-capturing-notes
 description: Use when saving or creating a note in Joplin — resolves or creates the target notebook, chooses Markdown or HTML, writes the note, and applies tags.
+metadata:
+  author: sohampatwardhan
+  version: "1.0.0"
 ---
 
 # Capturing notes in Joplin

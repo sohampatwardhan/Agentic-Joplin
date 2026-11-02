@@ -35,6 +35,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Check skill versions
+        run: npm run check:skills
+
       - run: npm run build
 
       - run: npm test
