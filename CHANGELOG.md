@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **Richer notes with Mermaid and KaTeX** — the agent skills now carry Joplin-specific
+  guidance for Mermaid (` ```mermaid ` fences) and KaTeX (`$...$` inline, `$$...$$` display),
+  centralized in `using-joplin` and referenced from `joplin-capturing-notes`,
+  `joplin-searching-and-updating`, and `joplin-organizing`. They defer to the optional
+  [`mermaid`](https://github.com/sohampatwardhan/mermaid-skill) and
+  [`katex`](https://github.com/sohampatwardhan/KaTeX-Agent-Skill) Agent Skills when installed
+  and fall back to plain fences when not (previously the `mermaid` skill was required). The
+  agent may offer to install a missing companion with `npx skills add ... -g`, but only after
+  explicit permission. Diagrams and formulas are used only when they help, and verbatim
+  captures include only those present in the source. README documents installing all three
+  with `npx skills`.
+
 ## [0.2.1] - 2026-11-02
 
 No functional changes to the server.

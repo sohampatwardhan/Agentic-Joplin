@@ -35,5 +35,7 @@ sweeping.
 ## Notes
 
 - Moving a notebook moves all its notes and sub-notebooks with it.
+- Organizing doesn't change note bodies. If merging notes means combining bodies, keep any
+  Mermaid or math blocks intact (see "Diagrams and math" in `using-joplin`).
 - When deduplicating or merging notebooks, move notes to the target first, verify, then delete
   the now-empty source (trashed, not permanent, unless confirmed).

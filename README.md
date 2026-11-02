@@ -79,6 +79,28 @@ npx skills add sohampatwardhan/Agentic-Joplin -g --skill using-joplin -a claude-
 npx skills update -g
 ```
 
+### Companion skills for richer notes
+
+Joplin renders Mermaid diagrams and KaTeX math natively. The Joplin skills work on their own,
+but when these two optional Agent Skills are installed they defer to them for diagrams and
+formulas:
+
+- [`mermaid`](https://github.com/sohampatwardhan/mermaid-skill) — picks a diagram type and
+  writes validated Mermaid.
+- [`katex`](https://github.com/sohampatwardhan/KaTeX-Agent-Skill) — writes KaTeX-safe math
+  with Joplin's `$` / `$$` delimiters.
+
+Install the Joplin skills and both companions together with [`skills`](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add sohampatwardhan/Agentic-Joplin -g
+npx skills add sohampatwardhan/mermaid-skill -g
+npx skills add sohampatwardhan/KaTeX-Agent-Skill -g
+```
+
+If a companion is missing, the agent may offer to install it, but only runs the command after
+you say yes.
+
 ## Development
 
 ```bash
