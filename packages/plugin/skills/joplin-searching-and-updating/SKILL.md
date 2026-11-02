@@ -1,6 +1,9 @@
 ---
 name: joplin-searching-and-updating
 description: Use when finding, reading, or updating existing Joplin notes — full-text search with notebook/tag scoping, read results, then safely update or append.
+metadata:
+  author: sohampatwardhan
+  version: "1.0.0"
 ---
 
 # Searching and updating Joplin notes

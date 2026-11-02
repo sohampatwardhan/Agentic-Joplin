@@ -1,6 +1,9 @@
 ---
 name: joplin-organizing
 description: Use when restructuring a Joplin workspace — nesting, moving, or renaming notebooks; retagging notes; and cleaning up.
+metadata:
+  author: sohampatwardhan
+  version: "1.0.0"
 ---
 
 # Organizing a Joplin workspace

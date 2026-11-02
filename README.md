@@ -105,8 +105,28 @@ you say yes.
 
 ```bash
 npm run build   # type-check + compile all workspaces
-npm test        # run all workspace unit tests (mocked Data API, no Joplin instance needed)
+npm test        # check skill versions, then run all workspace unit tests (mocked Data API, no Joplin instance needed)
+npm run check:skills  # only check that every SKILL.md has a valid SemVer metadata.version
 ```
+
+### Skill versioning
+
+Each `SKILL.md` carries a [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) version in its
+frontmatter `metadata` map (a string-to-string map, so quote the value):
+
+```yaml
+metadata:
+  author: sohampatwardhan
+  version: "1.0.0"
+```
+
+Bump a skill's version on any change to it:
+
+- **PATCH** for wording and fixes.
+- **MINOR** for new guidance or behaviour.
+- **MAJOR** for breaking changes, such as renames or removed steps.
+
+CI and `npm test` fail if any `SKILL.md` lacks `metadata.version` or the value isn't valid SemVer.
 
 Design docs live under [`docs/superpowers/`](docs/superpowers): the [design spec](docs/superpowers/specs/2026-07-08-joplin-mcp-server-design.md) and the [implementation plan](docs/superpowers/plans/2026-07-08-joplin-mcp-server-implementation.md).
 

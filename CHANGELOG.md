@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Skill versions** — every `SKILL.md` now carries a SemVer `metadata.version` (starting at
+  `1.0.0`) and `metadata.author` in its frontmatter. A dependency-free check
+  (`scripts/check-skill-versions.mjs`, run by `npm test` and CI) fails if a skill lacks a
+  version or the value isn't valid SemVer 2.0.0. README documents the bump rule: PATCH for
+  wording and fixes, MINOR for new guidance or behaviour, MAJOR for breaking changes.
+
 ### Changed
 
 - **Richer notes with Mermaid and KaTeX** — the agent skills now carry Joplin-specific
