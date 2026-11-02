@@ -2,7 +2,7 @@ name: Publish to npm
 
 # Publishes the MCP server workspace (packages/mcp-server, npm name `agentic-joplin`)
 # whenever a GitHub Release is published. The release tag must match the package version,
-# e.g. tag `v0.1.0` for version `0.1.0`.
+# e.g. tag `v0.2.0` for version `0.2.0`. The full CI suite (ci.yml) must pass first.
 
 on:
   release:
@@ -10,15 +10,37 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for npm provenance
 
 concurrency:
   group: npm-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  verify-tag:
+    name: Verify release tag matches package version
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=$(node -p "require('./packages/mcp-server/package.json').version")
+          if [ "${TAG#v}" != "$VERSION" ]; then
+            echo "::error::Release tag '$TAG' does not match agentic-joplin version '$VERSION'. Bump packages/mcp-server/package.json or retag."
+            exit 1
+          fi
+
+  ci:
+    needs: verify-tag
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
     steps:
       - uses: actions/checkout@v7
 
@@ -28,27 +50,20 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false # avoid cache poisoning in a job holding publish credentials
 
-      - name: Verify release tag matches package version
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          VERSION=$(node -p "require('./packages/mcp-server/package.json').version")
-          if [ "${TAG#v}" != "$VERSION" ]; then
-            echo "::error::Release tag '$TAG' does not match agentic-joplin version '$VERSION'. Bump packages/mcp-server/package.json or retag."
-            exit 1
-          fi
-
       - run: npm ci
 
-      - run: npm run build
-
-      - run: npm test
-
+      # `prepack` cleans and rebuilds dist/ before the tarball is made. A version that is
+      # already on npm (e.g. published by hand) is skipped instead of failing the release.
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
+          VERSION=$(node -p "require('./packages/mcp-server/package.json').version")
+          if npm view "agentic-joplin@$VERSION" version >/dev/null 2>&1; then
+            echo "::notice::agentic-joplin@$VERSION is already on npm; skipping publish."
+            exit 0
+          fi
           DIST_TAG=latest
           if [ "$PRERELEASE" = "true" ]; then DIST_TAG=next; fi
           npm publish --workspace agentic-joplin --provenance --access public --tag "$DIST_TAG"
