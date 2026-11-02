@@ -39,10 +39,21 @@ provide the semantic layer:
 Use `list_notes` with `notebook_id` or `tag_id` to walk a set of notes (mind the `truncated`
 flag). Use `list_note_revisions` if the user wants a note's edit history.
 
-## Diagrams
+## Diagrams and math
 
-Joplin renders Mermaid inside fenced ` ```mermaid ` blocks in **Markdown** notes. When you
-add a diagram to a note, or edit/fix a diagram already in one, **use the `mermaid` skill** to
-author and validate the Mermaid before you `update_note` — an unvalidated block shows as a
-render error in Joplin. Keep the note's existing `format`; Mermaid only renders when it's
-`markdown`. When appending a diagram, follow the read-then-write appending guidance above.
+Joplin renders Mermaid (` ```mermaid ` fences) and KaTeX (`$...$` inline, `$$...$$`
+display) in **Markdown** notes. Follow "Diagrams and math" in the `using-joplin` skill. When
+updating:
+
+- When adding a diagram or formula, or fixing a broken one already in the note, use the
+  `mermaid` or `katex` skill if it's available, then `update_note`. If it isn't, edit the
+  plain fence or `$`/`$$` math directly and keep the syntax simple.
+- Keep the note's existing `format`; both only render when it's `markdown`. Don't convert an
+  `html` note just to add a diagram unless the user asks.
+- Add diagrams or formulas only when they genuinely help, not as decoration. Leave existing
+  ones alone unless the user asked you to change them or they're broken.
+- If the note mirrors a verbatim source (slides, a document), only add diagrams or formulas
+  that are in that source.
+- When appending, follow the read-then-write appending guidance above.
+- You may offer to install a missing companion skill, but only after an explicit yes, and
+  don't ask again this session if they decline.

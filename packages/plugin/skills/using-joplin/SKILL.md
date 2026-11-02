@@ -47,6 +47,39 @@ Do not keep retrying other tools if `ping` fails — surface the fix instead.
   `create_note`/`update_note` take a `format` (`markdown` default, or `html`). HTML is stored
   faithfully — you do not need to think about Joplin's internal markup fields.
 
+## Diagrams and math (rich notes)
+
+Joplin renders both natively, but **only in Markdown notes** (not `html`):
+
+- **Mermaid:** a fenced ` ```mermaid ` block.
+- **KaTeX math:** `$...$` inline, `$$...$$` on their own lines for display. No space just
+  inside an inline `$` (write `$x^2$`, not `$ x^2 $`); escape a literal dollar as `\$`.
+
+Use them only when they genuinely help: a process, architecture, sequence, state machine, or
+timeline as a diagram; equations and formulas as math. Never add them as decoration, and don't
+turn a short list or a simple sentence into a diagram.
+
+**Verbatim sources.** When a note must reproduce source material exactly (slides, a document,
+a transcript the user asked to copy), only include diagrams or formulas that are actually in
+the source. Faithfully transcribing a diagram or equation that is there is fine; inventing,
+"improving", or embellishing one is not.
+
+**Companion skills (optional).** Two separate Agent Skills do this well:
+
+| Skill | For | Install |
+|---|---|---|
+| `mermaid` | choosing a diagram type, writing and validating Mermaid | `npx skills add sohampatwardhan/mermaid-skill -g` |
+| `katex` | KaTeX-safe LaTeX, delimiters, aligned equations, matrices | `npx skills add sohampatwardhan/KaTeX-Agent-Skill -g` |
+
+- If the skill is available, follow it for the diagram or formula, then embed the result in
+  the note body.
+- If it isn't, carry on without it: write a plain ` ```mermaid ` fence or `$`/`$$` math
+  yourself, keeping the syntax simple and conservative. The Joplin workflows never depend on
+  these skills.
+- You may **offer** to install a missing one, but you must ask first and only run the
+  `npx skills add ... -g` command after an explicit yes from the user. If they decline or don't
+  answer, continue without it and don't offer again in this session.
+
 ## Which workflow
 
 - Creating/saving a note → use the `joplin-capturing-notes` skill.

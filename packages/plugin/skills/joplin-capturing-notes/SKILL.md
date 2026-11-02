@@ -23,16 +23,21 @@ names to IDs, `truncated`, delete caution).
    with `tag_note` (note id + tag id).
 5. **Report** the created note's id and where it landed.
 
-## Diagrams
+## Diagrams and math
 
-Joplin renders Mermaid natively inside a fenced ` ```mermaid ` block in **Markdown**
-notes. Whenever the note includes or would benefit from a diagram (flowchart, sequence,
-architecture, gantt, ER, etc.), **use the `mermaid` skill** to author and validate it,
-then embed the fenced ` ```mermaid ` block in the note `body`. Requirements:
+Joplin renders Mermaid (` ```mermaid ` fences) and KaTeX (`$...$` inline, `$$...$$`
+display) in **Markdown** notes. Follow "Diagrams and math" in the `using-joplin` skill. In
+short:
 
-- The note `format` must be `markdown` (step 2) — Mermaid does not render in `html` notes.
-- Never paste hand-written Mermaid you haven't validated; the `mermaid` skill renders it
-  first so the note doesn't display a syntax error to the user.
+- Add a diagram or formula only when it genuinely helps (a process, architecture, sequence,
+  or maths), never as decoration.
+- If the `mermaid` or `katex` skill is available, use it to write the block, then embed it in
+  the `body`. If not, write a plain fence or `$`/`$$` math yourself; the capture still works.
+- Keep the note `format` as `markdown` (step 2); neither renders in `html` notes.
+- **Verbatim captures** (slides, documents, anything the user wants copied exactly): only
+  include diagrams or formulas present in the source. Never invent or embellish one.
+- You may offer to install a missing companion skill, but only run the install after an
+  explicit yes, and don't ask again this session if they decline.
 
 ## Notes
 
