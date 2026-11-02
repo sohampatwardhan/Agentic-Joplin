@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
+First release published to npm, as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin).
+
 ### Added
 
 - **npm package `agentic-joplin`** — the MCP server is now publishable to npm and runnable with
@@ -69,4 +73,6 @@ Behaviors confirmed against a live Joplin instance and handled accordingly:
   accordingly.
 - Search filters notebooks via the API's `folder` item type; `notebook` is mapped to it.
 
+[Unreleased]: https://github.com/sohampatwardhan/Agentic-Joplin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.1.0
