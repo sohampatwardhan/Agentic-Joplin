@@ -1,23 +1,88 @@
-# @agentic-joplin/mcp-server
+# agentic-joplin
 
-An MCP server that lets agents manage Joplin notes, notebooks, tags, search, and resources via Joplin's Data API.
+[![npm](https://img.shields.io/npm/v/agentic-joplin.svg)](https://www.npmjs.com/package/agentic-joplin) [![CI](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml/badge.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/blob/main/LICENSE)
 
-## Setup
+An [MCP](https://modelcontextprotocol.io) server that lets AI agents manage [Joplin](https://joplinapp.org) notes, notebooks, tags, search, and resources via Joplin's local Data API. Stdio transport, 26 tools.
 
-1. In the Joplin desktop app, go to **Options > Web Clipper** and enable the service (default port `41184`).
-2. Install and build: `npm install && npm run build --workspace @agentic-joplin/mcp-server`
-3. Get a token — two options:
-   - **Automatic (no copy-pasting):** run `npm run authorize --workspace @agentic-joplin/mcp-server`. It requests access from Joplin; click **Accept** on the dialog that appears in the app, and the token is fetched and cached to `~/.agentic-joplin/token.json` automatically.
-   - **Manual:** in Joplin, go to **Options > Web Clipper > Advanced options**, copy the token, and set it as `JOPLIN_TOKEN` below.
-4. Add it to your MCP client config (e.g. Claude Code), running `node packages/mcp-server/dist/index.js` with these environment variables:
+```bash
+npx agentic-joplin
+```
+
+## Requirements
+
+- Node.js ≥ 20
+- The Joplin desktop app running, with the **Web Clipper service enabled** (**Options > Web Clipper**, default port `41184`). Every tool call — and the authorize step — talks to this local service.
+
+## 1. Authorize (one time)
+
+The server needs a Joplin API token. Pick one:
+
+- **Automatic (recommended):** run
+
+  ```bash
+  npx -y -p agentic-joplin agentic-joplin-authorize
+  ```
+
+  (`-p` is needed because the authorize command is the package's second bin.) It asks Joplin for access; click **Accept** in the dialog that appears in Joplin. The token is cached to `~/.agentic-joplin/token.json` (file mode `0600`) and picked up automatically by the server — you don't need to set `JOPLIN_TOKEN`.
+- **Manual:** in Joplin, open **Options > Web Clipper > Advanced options**, copy the token, and pass it as `JOPLIN_TOKEN` in your MCP client config.
+
+If neither is present, the server still starts; on the first tool call it runs the same authorization handshake itself (Joplin shows the Accept dialog, and the call waits up to 5 minutes for you to respond), then caches the token as above.
+
+Token resolution order: `JOPLIN_TOKEN` → `~/.agentic-joplin/token.json` → interactive authorization on first request.
+
+## 2. Configure your MCP client
+
+Most MCP clients (Claude Desktop's `claude_desktop_config.json`, Cursor's `mcp.json`, a project `.mcp.json`, …) accept this shape:
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["-y", "agentic-joplin"]
+    }
+  }
+}
+```
+
+With an explicit token or a non-default host/port:
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["-y", "agentic-joplin"],
+      "env": {
+        "JOPLIN_TOKEN": "<your Joplin API token>",
+        "JOPLIN_HOST": "127.0.0.1",
+        "JOPLIN_PORT": "41184"
+      }
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add joplin -- npx -y agentic-joplin`
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.joplin]
+command = "npx"
+args = ["-y", "agentic-joplin"]
+env_vars = ["JOPLIN_TOKEN"]
+```
+
+### Environment variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `JOPLIN_TOKEN` | No, if you used the automatic `authorize` option above | — | API token from Joplin's Web Clipper settings. Falls back to the cached token from `authorize` if unset. |
-| `JOPLIN_HOST` | No | `127.0.0.1` | Host where Joplin's Web Clipper service is listening |
-| `JOPLIN_PORT` | No | `41184` | Port where Joplin's Web Clipper service is listening |
+| `JOPLIN_TOKEN` | No | — | API token from Joplin's Web Clipper settings. If unset, falls back to the cached token in `~/.agentic-joplin/token.json`, then to interactive authorization on first request. |
+| `JOPLIN_HOST` | No | `127.0.0.1` | Host where Joplin's Web Clipper service is listening (also used by `agentic-joplin-authorize`) |
+| `JOPLIN_PORT` | No | `41184` | Port where Joplin's Web Clipper service is listening (also used by `agentic-joplin-authorize`) |
 
-Joplin desktop must be running with the Web Clipper service enabled for any tool call — or the `authorize` command — to succeed.
+The server speaks MCP over stdin/stdout; its only stderr output is a startup line (`Agentic Joplin MCP server running on stdio`) and fatal errors.
 
 ## Tools
 
@@ -55,7 +120,14 @@ Full CRUD parity with Joplin's Data API for notes, notebooks, tags, and resource
 
 ## Development
 
-- `npm run test --workspace @agentic-joplin/mcp-server` — unit tests (mocked Data API, no Joplin instance required)
-- `npm run build --workspace @agentic-joplin/mcp-server` — type-check and compile
-- `npm run authorize --workspace @agentic-joplin/mcp-server` — run Joplin's clipper authorization handshake and cache the resulting token
-- See `SMOKE_TEST.md` for the manual release checklist against a real Joplin instance.
+This package lives in the [Agentic-Joplin monorepo](https://github.com/sohampatwardhan/Agentic-Joplin) under `packages/mcp-server`. From the repo root:
+
+- `npm install && npm run build --workspace agentic-joplin` — type-check and compile to `dist/`
+- `npm run test --workspace agentic-joplin` — unit tests (mocked Data API, no Joplin instance required)
+- `npm run authorize --workspace agentic-joplin` — run Joplin's clipper authorization handshake and cache the resulting token
+- `node packages/mcp-server/dist/index.js` — run the server from a local build
+- See [`SMOKE_TEST.md`](https://github.com/sohampatwardhan/Agentic-Joplin/blob/main/packages/mcp-server/SMOKE_TEST.md) for the manual release checklist against a real Joplin instance.
+
+## License
+
+MIT

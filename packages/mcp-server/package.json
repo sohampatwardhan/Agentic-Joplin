@@ -1,18 +1,46 @@
 {
-  "name": "@agentic-joplin/mcp-server",
-  "version": "0.1.0",
-  "private": true,
+  "name": "agentic-joplin",
+  "version": "0.2.0",
+  "description": "MCP server that lets AI agents manage Joplin notes, notebooks, tags, search, and resources via Joplin's local Data API.",
   "license": "MIT",
+  "author": "Soham Patwardhan",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "joplin",
+    "notes",
+    "ai",
+    "agent",
+    "claude"
+  ],
+  "homepage": "https://github.com/sohampatwardhan/Agentic-Joplin/tree/main/packages/mcp-server#readme",
+  "bugs": {
+    "url": "https://github.com/sohampatwardhan/Agentic-Joplin/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sohampatwardhan/Agentic-Joplin.git",
+    "directory": "packages/mcp-server"
+  },
   "type": "module",
-  "main": "dist/index.js",
   "bin": {
+    "agentic-joplin": "dist/index.js",
     "agentic-joplin-authorize": "dist/authorizeCli.js"
   },
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "prepack": "npm run clean && npm run build",
     "test": "vitest run",
     "start": "node dist/index.js",
     "authorize": "node dist/authorizeCli.js"

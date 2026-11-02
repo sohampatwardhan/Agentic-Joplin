@@ -25,5 +25,5 @@ Run against a real Joplin instance (Web Clipper enabled, token set) after buildi
 - [ ] Confirm the server actually launches on **both** platforms via the bundled config
       (`${CLAUDE_PLUGIN_ROOT}/../mcp-server/dist/index.js`). If a platform does not interpolate
       `${CLAUDE_PLUGIN_ROOT}` in `args`, fall back to: (a) a relative `cwd` + relative `args`, or
-      (b) an absolute path, or (c) the published-npm form `npx -y @agentic-joplin/mcp-server`.
+      (b) an absolute path, or (c) the published-npm form `npx -y agentic-joplin`.
       Record which form each platform needed.

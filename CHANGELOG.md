@@ -6,18 +6,35 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
+First release published to npm, as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin).
+
 ### Added
 
+- **npm package `agentic-joplin`** — the MCP server is now publishable to npm and runnable with
+  `npx agentic-joplin`. New `agentic-joplin` bin starts the stdio server; the authorize CLI stays
+  available as the second bin (`npx -p agentic-joplin agentic-joplin-authorize`). The tarball
+  ships only `dist/`, `README.md`, and `LICENSE`, and is rebuilt from a clean `dist/` on
+  `prepack`. A GitHub Actions workflow (`.github/workflows/publish.yml`) builds, tests, and
+  publishes the package with npm provenance whenever a GitHub Release is published.
 - **`@agentic-joplin/plugin`** — cross-platform (Claude Code + Codex) plugin bundling the Joplin
   MCP server with four agent skills: `using-joplin` (hub), `joplin-capturing-notes`,
   `joplin-searching-and-updating`, and `joplin-organizing`. Shared `SKILL.md` files and MCP
   config; per-platform manifests. Token via Claude Code `userConfig` or Codex `env_vars`.
-- **Token auto-discovery** — `npm run authorize --workspace @agentic-joplin/mcp-server` (and the
+- **Token auto-discovery** — `npm run authorize --workspace agentic-joplin` (and the
   `agentic-joplin-authorize` bin) runs Joplin's clipper authorization handshake (`POST /auth` +
   poll `GET /auth/check`, the same flow the Web Clipper browser extension uses) so a user can
   grant access with one click in Joplin instead of copy-pasting a token, caching the result to
   `~/.agentic-joplin/token.json`. `loadConfig` falls back to this cache when `JOPLIN_TOKEN` is
   unset, and the plugin's Claude Code `userConfig` token field is now optional.
+
+### Changed
+
+- **Package renames** — the MCP server workspace `@agentic-joplin/mcp-server` is now
+  `agentic-joplin` (use `--workspace agentic-joplin`), and the private monorepo root is now
+  `agentic-joplin-monorepo`. The server's MCP version string is read from `package.json` instead
+  of being hard-coded.
 
 ## [0.1.0] - 2026-07-09
 
@@ -56,4 +73,6 @@ Behaviors confirmed against a live Joplin instance and handled accordingly:
   accordingly.
 - Search filters notebooks via the API's `folder` item type; `notebook` is mapped to it.
 
+[Unreleased]: https://github.com/sohampatwardhan/Agentic-Joplin/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.1.0

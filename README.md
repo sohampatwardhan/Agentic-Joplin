@@ -1,12 +1,14 @@
 # Agentic-Joplin
 
+[![npm](https://img.shields.io/npm/v/agentic-joplin.svg)](https://www.npmjs.com/package/agentic-joplin) [![CI](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml/badge.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/blob/main/LICENSE)
+
 Tooling that lets coding agents integrate with [Joplin](https://joplinapp.org), the open-source note-taking app.
 
 The project has three planned pieces:
 
 | Piece | Status |
 |---|---|
-| **MCP server** — wraps Joplin's Data API as Model Context Protocol tools | ✅ Phase 1 complete |
+| **MCP server** — wraps Joplin's Data API as Model Context Protocol tools | ✅ Published to npm as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin) |
 | **Joplin plugin** — in-app plugin for capabilities the Data API can't expose | 🔜 planned |
 | **Agent skills** — skill files teaching agents how to use Joplin effectively | ✅ Claude Code + Codex plugin |
 
@@ -19,20 +21,33 @@ This repo is an npm-workspaces monorepo; each piece lives under `packages/`.
 ### Requirements
 
 - Node.js ≥ 20
-- Joplin desktop running with the **Web Clipper service enabled** (Options → Web Clipper), and an API token generated there.
+- Joplin desktop running with the **Web Clipper service enabled** (Options → Web Clipper).
 
 ### Setup
 
+The server is published to npm as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin):
+
 ```bash
-npm install
-npm run build --workspace @agentic-joplin/mcp-server
+npx -y -p agentic-joplin agentic-joplin-authorize   # one time: click Accept in Joplin; caches a token
 ```
 
-Then add it to your MCP client (e.g. Claude Code / Claude Desktop) as a stdio server running `node packages/mcp-server/dist/index.js`, with these environment variables:
+Then add it to your MCP client (e.g. Claude Code / Claude Desktop) as a stdio server:
+
+```json
+{
+  "mcpServers": {
+    "joplin": { "command": "npx", "args": ["-y", "agentic-joplin"] }
+  }
+}
+```
+
+To run from source instead: `npm install && npm run build --workspace agentic-joplin`, then point the client at `node packages/mcp-server/dist/index.js`.
+
+Environment variables:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `JOPLIN_TOKEN` | yes | — | API token from Joplin's Web Clipper settings |
+| `JOPLIN_TOKEN` | no | — | API token from Joplin's Web Clipper settings. Falls back to the token cached in `~/.agentic-joplin/token.json`, then to interactive authorization on first request. |
 | `JOPLIN_HOST` | no | `127.0.0.1` | Host of the Web Clipper service |
 | `JOPLIN_PORT` | no | `41184` | Port of the Web Clipper service |
 

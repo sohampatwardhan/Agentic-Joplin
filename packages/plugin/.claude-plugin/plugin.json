@@ -11,7 +11,7 @@
     "joplin_token": {
       "type": "string",
       "title": "Joplin API token",
-      "description": "API token from Joplin: Options > Web Clipper > Advanced options. Leave blank if you've already run `npm run authorize --workspace @agentic-joplin/mcp-server` to fetch and cache one automatically.",
+      "description": "API token from Joplin: Options > Web Clipper > Advanced options. Leave blank if you've already run `npm run authorize --workspace agentic-joplin` to fetch and cache one automatically.",
       "sensitive": true,
       "required": false
     }
