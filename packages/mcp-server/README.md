@@ -1,5 +1,7 @@
 # agentic-joplin
 
+[![npm](https://img.shields.io/npm/v/agentic-joplin.svg)](https://www.npmjs.com/package/agentic-joplin) [![CI](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml/badge.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/blob/main/LICENSE)
+
 An [MCP](https://modelcontextprotocol.io) server that lets AI agents manage [Joplin](https://joplinapp.org) notes, notebooks, tags, search, and resources via Joplin's local Data API. Stdio transport, 26 tools.
 
 ```bash

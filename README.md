@@ -1,12 +1,14 @@
 # Agentic-Joplin
 
+[![npm](https://img.shields.io/npm/v/agentic-joplin.svg)](https://www.npmjs.com/package/agentic-joplin) [![CI](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml/badge.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/sohampatwardhan/Agentic-Joplin/blob/main/LICENSE)
+
 Tooling that lets coding agents integrate with [Joplin](https://joplinapp.org), the open-source note-taking app.
 
 The project has three planned pieces:
 
 | Piece | Status |
 |---|---|
-| **MCP server** — wraps Joplin's Data API as Model Context Protocol tools | ✅ Phase 1 complete |
+| **MCP server** — wraps Joplin's Data API as Model Context Protocol tools | ✅ Published to npm as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin) |
 | **Joplin plugin** — in-app plugin for capabilities the Data API can't expose | 🔜 planned |
 | **Agent skills** — skill files teaching agents how to use Joplin effectively | ✅ Claude Code + Codex plugin |
 
