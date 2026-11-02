@@ -1,6 +1,6 @@
 {
   "name": "agentic-joplin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server that lets AI agents manage Joplin notes, notebooks, tags, search, and resources via Joplin's local Data API.",
   "license": "MIT",
   "author": "Soham Patwardhan",

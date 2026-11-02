@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-02
+
+No functional changes to the server.
+
+### Changed
+
+- **Trusted Publishing** — `agentic-joplin` is now published from GitHub Actions through npm
+  Trusted Publishing (OIDC) instead of a stored npm token, so each release carries an npm
+  provenance attestation linking it to the commit and workflow run that built it.
+
 ## [0.2.0] - 2026-11-01
 
 First release published to npm, as [`agentic-joplin`](https://www.npmjs.com/package/agentic-joplin).
@@ -73,6 +83,7 @@ Behaviors confirmed against a live Joplin instance and handled accordingly:
   accordingly.
 - Search filters notebooks via the API's `folder` item type; `notebook` is mapped to it.
 
-[Unreleased]: https://github.com/sohampatwardhan/Agentic-Joplin/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sohampatwardhan/Agentic-Joplin/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.2.1
 [0.2.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.2.0
 [0.1.0]: https://github.com/sohampatwardhan/Agentic-Joplin/releases/tag/v0.1.0

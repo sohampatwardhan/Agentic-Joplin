@@ -3,6 +3,10 @@ name: Publish to npm
 # Publishes the MCP server workspace (packages/mcp-server, npm name `agentic-joplin`)
 # whenever a GitHub Release is published. The release tag must match the package version,
 # e.g. tag `v0.2.0` for version `0.2.0`. The full CI suite (ci.yml) must pass first.
+#
+# Authenticates with npm Trusted Publishing (OIDC): no npm token is stored in the repo. The
+# trusted publisher on npmjs.com is configured for this repo and `publish.yml`. Needs
+# npm >= 11.5.1, which Node 24 ships with.
 
 on:
   release:
@@ -40,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # required for npm provenance
+      id-token: write # OIDC token for npm Trusted Publishing and provenance
     steps:
       - uses: actions/checkout@v7
 
@@ -56,7 +60,6 @@ jobs:
       # already on npm (e.g. published by hand) is skipped instead of failing the release.
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
           VERSION=$(node -p "require('./packages/mcp-server/package.json').version")
