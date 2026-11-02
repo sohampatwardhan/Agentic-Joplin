@@ -66,6 +66,19 @@ Notes can be created in Markdown (default) or HTML via a `format` parameter. See
 `joplin-capturing-notes`, `joplin-searching-and-updating`, `joplin-organizing`). See
 [`packages/plugin/README.md`](packages/plugin/README.md) for install steps on each platform.
 
+To install only the four skills, without the plugin bundle, use the [`skills` CLI](https://github.com/vercel-labs/skills) (Node.js 22.20 or later). It records the source, so `npx skills update` keeps them current. The skills still need the Joplin MCP server above.
+
+```bash
+# All four skills, globally
+npx skills add sohampatwardhan/Agentic-Joplin -g
+
+# One skill, for chosen agents only
+npx skills add sohampatwardhan/Agentic-Joplin -g --skill using-joplin -a claude-code -a codex
+
+# Update later
+npx skills update -g
+```
+
 ## Development
 
 ```bash
